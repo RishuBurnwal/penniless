@@ -83,7 +83,6 @@ class GitExecutor:
         console.print(f"  [cyan]Forking & cloning {repo_slug} into workspaces...[/cyan]")
         
         # Try gh repo fork --clone
-        cmd = ["gh", "repo", "fork", repo_slug, "--clone=true", f"--{repo_dir}"]
         res = _run_cmd(["gh", "repo", "fork", repo_slug, "--clone", str(repo_dir)], timeout=180)
         
         if res.returncode != 0:

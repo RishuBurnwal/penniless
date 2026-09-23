@@ -122,19 +122,25 @@ def scan_issuehunt(limit: int = 20) -> list[dict]:
         data = r.json()
         issues: list[dict] = data if isinstance(data, list) else data.get("data", [])
 
+        def _to_float(v: Any) -> float:
+            try:
+                return float(v or 0)
+            except (ValueError, TypeError):
+                return 0.0
+
         return [
             {
                 "source": "issuehunt",
                 "title": i.get("title", ""),
                 "repo": i.get("repo_full_name", ""),
-                "reward_usd": float(i.get("funded_amount", 0)),
+                "reward_usd": _to_float(i.get("funded_amount")),
                 "currency": "USD",
                 "url": i.get("html_url", ""),
-                "labels": [lbl.get("name") for lbl in (i.get("labels") or [])],
+                "labels": [lbl.get("name") for lbl in (i.get("labels") or []) if isinstance(lbl, dict)],
                 "paid_before": True,  # IssueHunt escrows funds before listing
             }
             for i in issues
-            if float(i.get("funded_amount", 0)) > 0
+            if _to_float(i.get("funded_amount")) > 0
         ]
     except Exception:
         return []
@@ -172,19 +178,28 @@ def scan_algora(limit: int = 20) -> list[dict]:
                 or []
             )[:limit]
 
-        return [
-            {
-                "source": "algora",
-                "title": b.get("issue", {}).get("title", b.get("title", "")),
-                "repo": b.get("issue", {}).get("repo", {}).get("full_name", b.get("repo", "")),
-                "reward_usd": float(b.get("total_amount", b.get("amount", 0))),
-                "currency": (b.get("currency", "USD") or "USD").upper(),
-                "url": b.get("issue", {}).get("url", b.get("url", "")),
-                "paid_before": True,  # Algora holds funds in escrow
-            }
-            for b in bounties
-            if float(b.get("total_amount", b.get("amount", 0))) > 0
-        ]
+        def _safe_float(v: Any) -> float:
+            try:
+                return float(v or 0)
+            except (ValueError, TypeError):
+                return 0.0
+
+        res_bounties = []
+        for b in bounties:
+            issue = b.get("issue") if isinstance(b.get("issue"), dict) else {}
+            repo_info = issue.get("repo") if isinstance(issue.get("repo"), dict) else {}
+            amt = _safe_float(b.get("total_amount") or b.get("amount"))
+            if amt > 0:
+                res_bounties.append({
+                    "source": "algora",
+                    "title": issue.get("title") or b.get("title", ""),
+                    "repo": repo_info.get("full_name") or b.get("repo", ""),
+                    "reward_usd": amt,
+                    "currency": (b.get("currency") or "USD").upper(),
+                    "url": issue.get("url") or b.get("url", ""),
+                    "paid_before": True,  # Algora holds funds in escrow
+                })
+        return res_bounties
     except Exception as e:
         console.print(f"  [dim]Algora scan error: {e}[/dim]")
         return []

@@ -160,6 +160,7 @@ def _option_2_autonomous_loop() -> None:
         return
     from src.agent_runner import run_autonomous_daemon
     run_autonomous_daemon()
+    input("\n  Press Enter to return to the menu...")
 
 
 def _option_3_single_cycle() -> None:

@@ -24,7 +24,7 @@ import threading
 import json
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Callable
 
@@ -54,7 +54,7 @@ def _log_session(event: str, provider: str, model: str, success: bool,
                   error: str = "") -> None:
     """Append one line to session_log.jsonl for cross-AI continuity."""
     entry = {
-        "ts": datetime.utcnow().isoformat() + "Z",
+        "ts": datetime.now(timezone.utc).isoformat(),
         "event": event,
         "provider": provider,
         "model": model,

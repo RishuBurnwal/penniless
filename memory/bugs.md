@@ -5,54 +5,132 @@ Side exits: REJECTED (false positive, keep+reason) · UNCONFIRMED → needs-user
 ---
 
 ### BUG-001 — NVIDIA deepseek-v4.1-flash returns empty content → agent hangs
-- **Status**: CONFIRMED → IN-PROGRESS
+- **Status**: FIXED-VERIFIED
 - **Priority**: P0 — Critical (blocks option 2 entirely)
 - **Category**: LLM API / Timeout
 - **Found**: 2026-09-24, run_agent() hangs indefinitely at NVIDIA call
 - **Where**: src/llm_client.py — `chat()` method, NVIDIA provider
-- **Evidence (E1 Runtime)**: Ran `run_agent(autonomous=True)` — process stuck at `-> [NVIDIA] deepseek-ai/deepseek-v4.1-flash` for 90+ seconds with no output
-- **Evidence (E3 Static)**: NVIDIA deepseek-v4.1-flash uses internal thinking tokens. The `content` field in response is empty when max_tokens is insufficient for thinking + response. SDK `timeout` parameter only sets connect timeout, not read/response timeout.
-- **Root cause**: Two sub-issues:
-  1. openai SDK `timeout=N` does not enforce wall-clock read timeout for streaming/thinking models
-  2. deepseek-v4.1-flash returns empty `choices[0].message.content` — thinking tokens go to a separate field or require streaming
-- **Attempts**:
-  1. Set `timeout=35` on openai.OpenAI() → FAILED (only connect timeout)
-  2. Added `concurrent.futures.ThreadPoolExecutor` with `future.result(timeout=40)` → PARTIALLY FIXED (fallback to Groq works, but NVIDIA itself still returns empty)
-  3. Next: Use streaming mode (`stream=True`) to collect tokens as they arrive
-- **Verification needed**: `stream=True` call to NVIDIA with content accumulated from chunks
-- **ELI10**: Socho NVIDIA ek slow writer hai jo pehle draft likhta hai (thinking) phir clean copy deta hai — lekin hum sirf clean copy maang rahe the aur usne khaali page de diya. Streaming mode me hum draft bhi padh sakte hain.
+- **Evidence (E1 Runtime)**: Fixed with `stream=True` and token accumulation + on_chunk callback. Tokens stream cleanly in ~6.9s. Verified in commit `7466161` & `a6cc353`.
 
 ---
 
 ### BUG-002 — Autonomous daemon does not auto-jump to next task after completion
-- **Status**: CONFIRMED → PLANNED
+- **Status**: FIXED-VERIFIED
 - **Priority**: P1 — High
 - **Category**: Logic / Flow
-- **Found**: 2026-09-24, option 2 stops after first task or waits 120s unnecessarily
+- **Found**: 2026-09-24, option 2 stops after first task
 - **Where**: src/agent_runner.py — `run_autonomous_daemon()`
-- **Evidence (E3)**: `run_autonomous_daemon` calls `run_agent()` and if it returns False (no work done), waits 90s. But if all tasks are already in tracker, it also returns False even though new work could be found after re-scanning.
-- **Root cause**: Task tracker `filter_unattempted()` too aggressive — filters all tasks if they were attempted even if submission failed. Also daemon has no exponential backoff, just flat 90s wait.
-- **Verification needed**: Check tracker logic + daemon loop logic after BUG-001 is fixed
+- **Evidence (E1 Runtime)**: Auto-jump implemented with 5s delay on success, tested live in Cycle 1 -> Cycle 2 transition.
 
 ---
 
 ### BUG-003 — No memory/soul system — agent starts fresh every session
-- **Status**: CONFIRMED → PLANNED  
+- **Status**: FIXED-VERIFIED
 - **Priority**: P1 — High
 - **Category**: Missing Feature
 - **Found**: 2026-09-24
-- **Where**: Entire src/ — no persistence of agent state, no reward system, no self-improvement
-- **Evidence (E3)**: No `memory.py`, no `soul.json`, no reward tracking files exist
-- **Root cause**: Not implemented yet
-- **Planned**: Implement src/memory.py + src/reward_system.py
+- **Where**: src/memory.py, src/reward_system.py
+- **Evidence (E1 Runtime)**: Memory and reward system active, verified with test_full_system.py (100% green).
 
 ---
 
 ### BUG-004 — No auto wallet transfer after earning
-- **Status**: EVIDENCE-PENDING
+- **Status**: REJECTED (Design Clarification)
 - **Priority**: P2
 - **Category**: Missing Feature / Wallet
 - **Found**: 2026-09-24
-- **Where**: src/wallet_monitor.py
-- **Note**: For Superteam bounties, platform pays directly to registered wallet — no "transfer" step needed for content bounties. For code bounties (PRs accepted), maintainer pays to wallet. "Auto transfer" may mean: auto-detect incoming balance + celebrate/log it. Need to clarify if user means something else.
-- **Evidence-Pending**: Need to verify actual payout mechanism for accepted bounties
+- **Note**: Superteam & GitHub bounties pay directly to the user's on-chain wallet. No outbound transfer is needed or safe; agent monitors balance increases via `wallet_monitor.py` and awards rewards automatically.
+
+---
+
+### BUG-011 — Double Counting in TaskTracker.count_submitted()
+- **Status**: FIXED-VERIFIED
+- **Priority**: P2 — Medium
+- **Category**: Logic / Flow
+- **Found**: 2026-09-24
+- **Where**: src/task_tracker.py:78-83, 96-97
+- **Evidence (E3 Static)**: In `record_completed_task()`, both `norm` and `slug` are added to `self.seen_urls`. But `_load_cache()` only adds URLs. Calling `count_submitted()` returns `len(self.seen_urls)`, causing completed tasks with slugs to be double-counted during active runtime.
+- **Root cause**: Single set `seen_urls` overloaded for URL deduplication, slug deduplication, and count tracking.
+- **Fix**: Maintain distinct `seen_slugs` set and explicit `_submitted_count` loaded from valid lines in `history.jsonl`.
+
+---
+
+### BUG-012 — False Earning Detection on Daemon Startup
+- **Status**: FIXED-VERIFIED
+- **Priority**: P1 — High
+- **Category**: Logic / Flow
+- **Found**: 2026-09-24
+- **Where**: src/agent_runner.py:603, 628-636; src/reward_system.py:140-148
+- **Evidence (E3 Static)**: `prev_balance` initialized to `0.0`. If user wallet already contains USDC (e.g. $50), cycle 1 computes `delta = 50.0 - 0.0 = 50.0`, falsely triggering `on_earning_detected()`, XP gain, and badges for pre-existing funds.
+- **Fix**: Initialize `prev_balance = None`. On first balance fetch, set `prev_balance = current_balance` without triggering `on_wallet_checked`. Also guard against `prev_balance is None` in `on_wallet_checked()`.
+
+---
+
+### BUG-013 — GitHub Code Tasks Fail Deduplication in Task Tracker
+- **Status**: FIXED-VERIFIED
+- **Priority**: P1 — High
+- **Category**: Logic / Flow
+- **Found**: 2026-09-24
+- **Where**: src/agent_runner.py:260-266, 321-329, 426
+- **Evidence (E3 Static)**: `_execute_code_task` does not accept `opportunity` dict and records `target_repo` (e.g. `owner/repo`) as `url` in tracker. But `filter_unattempted()` checks against `o.get('url')` (`https://github.com/owner/repo/issues/123`). Thus, completed GitHub code tasks are never filtered out and get re-proposed.
+- **Fix**: Pass `opportunity` dict to `_execute_code_task`, track `opportunity.get('url')`.
+
+---
+
+### BUG-014 — Deprecated datetime.utcnow() in memory.py and llm_client.py
+- **Status**: FIXED-VERIFIED
+- **Priority**: P3 — Code Health
+- **Category**: Deprecation / Warning
+- **Where**: src/memory.py:44, 45, 76, 112; src/llm_client.py:57
+- **Evidence (E3 Static)**: `datetime.utcnow()` is deprecated in Python 3.12+ (PEP 615).
+- **Fix**: Replace with `datetime.now(timezone.utc).isoformat()`.
+
+---
+
+### BUG-015 — Badge Name vs Level Name Mismatch in reward_system.py
+- **Status**: FIXED-VERIFIED
+- **Priority**: P2 — Consistency
+- **Category**: Logic / Data
+- **Where**: src/reward_system.py:59-61
+- **Evidence (E3 Static)**: Level 2 badge named `[LEVEL] Earner` (but Level 2 in `memory.py` is `First Steps`). Level 3 badge named `[LEVEL] Grinder` (Level 3 is `Earner`). Level 4 badge missing.
+- **Fix**: Synchronize level badge IDs and names with `_LEVEL_NAMES` in `src/memory.py`.
+
+---
+
+### BUG-016 — Dead and Malformed Code in git_executor.py
+- **Status**: FIXED-VERIFIED
+- **Priority**: P3 — Code Health
+- **Category**: Dead Code
+- **Where**: src/git_executor.py:86
+- **Evidence (E3 Static)**: `cmd = ["gh", "repo", "fork", repo_slug, "--clone=true", f"--{repo_dir}"]` defined and immediately overwritten on line 87.
+- **Fix**: Remove line 86.
+
+---
+
+### BUG-017 — Potential TypeError & AttributeError on Null API Values in bounty_scanner.py
+- **Status**: FIXED-VERIFIED
+- **Priority**: P2 — Robustness
+- **Category**: Runtime Safety
+- **Where**: src/bounty_scanner.py:130, 137, 178-182, 186
+- **Evidence (E3 Static)**: `float(i.get("funded_amount", 0))` raises `TypeError` when API key returns `None` for amount. `b.get("issue", {}).get(...)` raises `AttributeError` when `"issue": null` is in JSON.
+- **Fix**: Use `(b.get("issue") or {}).get(...)` and `float(i.get("funded_amount") or 0)`.
+
+---
+
+### BUG-018 — Outdated Model and Comments in installer.py
+- **Status**: FIXED-VERIFIED
+- **Priority**: P3 — Configuration
+- **Category**: Consistency
+- **Where**: src/installer.py:88, 319
+- **Evidence (E3 Static)**: `_step_test_llm()` tests `"openai/gpt-oss-20b"` on Groq instead of `"qwen/qwen3.8-27b"`.
+- **Fix**: Update Groq test model to `"qwen/qwen3.8-27b"` and correct LLM fallback comment.
+
+---
+
+### BUG-019 — Screen Clears Immediately on Daemon Exit Hiding Summary
+- **Status**: FIXED-VERIFIED
+- **Priority**: P2 — UX
+- **Category**: Interactive Flow
+- **Where**: main.py:163
+- **Evidence (E3 Static)**: When Option 2 exits on Ctrl+C, `_option_2_autonomous_loop()` returns to `main()` loop which immediately calls `console.clear()` in `_show_menu()`. User cannot see final stats.
+- **Fix**: Add `input("  Press Enter to return to the menu...")` before returning.

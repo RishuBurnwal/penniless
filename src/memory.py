@@ -13,7 +13,7 @@ Usage:
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -41,8 +41,8 @@ _DEFAULT_SOUL: dict = {
     ],
     "best_providers": [],       # learned from session logs
     "best_task_types": [],      # "written_content" or "code"
-    "born_at": datetime.utcnow().isoformat() + "Z",
-    "last_seen": datetime.utcnow().isoformat() + "Z",
+    "born_at": datetime.now(timezone.utc).isoformat(),
+    "last_seen": datetime.now(timezone.utc).isoformat(),
     "session_count": 0,
     "bug_patterns": [
         "NVIDIA thinking model returns empty content — use reasoning_content fallback",
@@ -73,7 +73,7 @@ class AgentMemory:
         _MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
         self.soul = self._load_soul()
         self.soul["session_count"] = self.soul.get("session_count", 0) + 1
-        self.soul["last_seen"] = datetime.utcnow().isoformat() + "Z"
+        self.soul["last_seen"] = datetime.now(timezone.utc).isoformat()
         self._save_soul()
 
     # ── Soul persistence ──────────────────────────────────────────────────────
@@ -109,7 +109,7 @@ class AgentMemory:
     ) -> None:
         """Append an episode to memory.jsonl and optionally update soul."""
         entry = {
-            "ts": datetime.utcnow().isoformat() + "Z",
+            "ts": datetime.now(timezone.utc).isoformat(),
             "event": event,
             "outcome": outcome,
             "learned": learned,

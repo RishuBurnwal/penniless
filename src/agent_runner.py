@@ -196,7 +196,7 @@ def _extract_json_payload(text: str) -> dict:
     return {}
 
 
-def _execute_code_task(proposal: str, autonomous: bool = False) -> None:
+def _execute_code_task(proposal: str, autonomous: bool = False, opportunity: dict | None = None) -> None:
     """Generate a full code solution and optionally submit PR autonomously."""
     action_label = "Autonomous Submission" if autonomous else "Manual Review"
     console.print(f"\n[bold green]✅ Executing code task [{action_label}]...[/bold green]\n")
@@ -257,8 +257,9 @@ Ensure the repository name is in owner/repo format and the code in "files" is 10
                 )
                 ledger_entry = f"| {datetime.now().strftime('%Y-%m-%d')} | github | {pr_title} | {pr_url} | Submitted (Autonomous) |"
                 _append_ledger(ledger_entry)
+                code_url = (opportunity.get("url") if opportunity else "") or f"https://github.com/{target_repo}"
                 tracker.record_completed_task(
-                    url=target_repo,
+                    url=code_url,
                     title=pr_title,
                     source="github",
                     artifact_or_pr=pr_url,
@@ -318,8 +319,10 @@ Approved proposal:
         console.print("[dim]✎ Ledger entry recorded.[/dim]")
 
     # Record to tracker so autonomous engine always advances to next task
-    url_match = re.search(r"\*\*URL:\*\*\s*([^\s\n]+)", proposal)
-    task_url = url_match.group(1).strip() if url_match else "code_task"
+    task_url = (opportunity.get("url") if opportunity else "")
+    if not task_url:
+        url_match = re.search(r"\*\*URL:\*\*\s*([^\s\n]+)", proposal)
+        task_url = url_match.group(1).strip() if url_match else "code_task"
     tracker.record_completed_task(
         url=task_url,
         title="Code Solution",
@@ -423,7 +426,7 @@ def _execute_task(proposal: str, autonomous: bool = False, opportunity: dict | N
     if _is_content_task(proposal):
         _execute_content_task(proposal, autonomous=autonomous, opportunity=opportunity)
     else:
-        _execute_code_task(proposal, autonomous=autonomous)
+        _execute_code_task(proposal, autonomous=autonomous, opportunity=opportunity)
 
 
 # ─── Phase 1: Find and propose a task ────────────────────────────────────────
@@ -600,7 +603,7 @@ def run_autonomous_daemon() -> None:
     import time
 
     task_count = 0
-    prev_balance = 0.0
+    prev_balance: float | None = None
 
     console.clear()
     console.print(Panel(
@@ -624,16 +627,14 @@ def run_autonomous_daemon() -> None:
             except Exception:
                 current_balance = 0.0
 
-            # Reward system: detect if earning arrived
-            rewards.on_wallet_checked(
-                current_balance=current_balance,
-                prev_balance=prev_balance,
-                source="Base/Solana",
-            )
-            if current_balance != prev_balance and prev_balance > 0:
-                prev_balance = current_balance
-            elif prev_balance == 0.0:
-                prev_balance = current_balance
+            # Reward system: detect if earning arrived (only when previous balance is already known)
+            if prev_balance is not None:
+                rewards.on_wallet_checked(
+                    current_balance=current_balance,
+                    prev_balance=prev_balance,
+                    source="Base/Solana",
+                )
+            prev_balance = current_balance
 
             # ── 2. Work cycle ────────────────────────────────────────────────
             task_count += 1

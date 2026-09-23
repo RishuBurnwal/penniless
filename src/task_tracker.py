@@ -22,6 +22,8 @@ class TaskTracker:
 
     def _load_cache(self) -> None:
         self.seen_urls: set[str] = set()
+        self.seen_slugs: set[str] = set()
+        self._submitted_count: int = 0
         if not self.history_file.exists():
             return
         try:
@@ -34,7 +36,13 @@ class TaskTracker:
                         entry = json.loads(line)
                         url = entry.get("url")
                         if url:
-                            self.seen_urls.add(self._normalize_url(url))
+                            norm = self._normalize_url(url)
+                            self.seen_urls.add(norm)
+                            if "listings/" in norm:
+                                slug = norm.split("listings/")[-1].strip("/")
+                                if slug:
+                                    self.seen_slugs.add(slug)
+                            self._submitted_count += 1
                     except Exception:
                         continue
         except Exception:
@@ -48,11 +56,11 @@ class TaskTracker:
         if not url:
             return False
         norm = self._normalize_url(url)
-        if norm in self.seen_urls:
+        if norm in self.seen_urls or norm in self.seen_slugs:
             return True
         if "listings/" in norm:
             slug = norm.split("listings/")[-1].strip("/")
-            if slug in self.seen_urls:
+            if slug in self.seen_slugs:
                 return True
         return False
 
@@ -79,7 +87,9 @@ class TaskTracker:
         self.seen_urls.add(norm)
         if "listings/" in norm:
             slug = norm.split("listings/")[-1].strip("/")
-            self.seen_urls.add(slug)
+            if slug:
+                self.seen_slugs.add(slug)
+        self._submitted_count += 1
 
         record = {
             "url": url,
@@ -94,7 +104,7 @@ class TaskTracker:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     def count_submitted(self) -> int:
-        return len(self.seen_urls)
+        return self._submitted_count
 
 
 # Global singleton tracker

@@ -85,7 +85,7 @@ def _write_env(values: dict[str, str]) -> None:
         "# Generated/updated by installer.py — never commit this file.",
         "# =============================================================",
         "",
-        "# ── LLM PROVIDERS (Fallback order: NVIDIA → Gemini → Groq → OpenAI → Perplexity)",
+        "# ── LLM PROVIDERS (Fallback order: NVIDIA → Groq → Gemini → OpenAI → Perplexity)",
         "# At least one must be set. Providers without a key are skipped automatically.",
         f"NVIDIA_API_KEY={values.get('NVIDIA_API_KEY', '')}",
         f"GEMINI_API_KEY={values.get('GEMINI_API_KEY', '')}",
@@ -316,7 +316,7 @@ def _step_test_llm(env: dict[str, str]) -> None:
     providers_to_test = [
         ("NVIDIA",      env.get("NVIDIA_API_KEY", ""),      "https://integrate.api.nvidia.com/v1",                      "deepseek-ai/deepseek-v4.1-flash"),
         ("Gemini",      env.get("GEMINI_API_KEY", ""),      "https://generativelanguage.googleapis.com/v1beta/openai/",  gemini_model),
-        ("Groq",        env.get("GROQ_API_KEY", ""),        "https://api.groq.com/openai/v1",                           "openai/gpt-oss-20b"),
+        ("Groq",        env.get("GROQ_API_KEY", ""),        "https://api.groq.com/openai/v1",                           "qwen/qwen3.8-27b"),
         ("OpenAI",      env.get("OPENAI_API_KEY", ""),      "https://api.openai.com/v1",                                "gpt-4o-mini"),
         ("Perplexity",  env.get("PERPLEXITY_API_KEY", ""),  "https://api.perplexity.ai",                                "llama-3.1-sonar-large-128k-online"),
     ]

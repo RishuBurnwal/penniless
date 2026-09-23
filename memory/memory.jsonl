@@ -7,3 +7,13 @@
 {"ts": "2026-09-23T22:41:15.369773Z", "event": "badge_earned", "outcome": "[BADGE] Ten Bucks", "learned": "", "badge_id": "ten_bucks", "desc": "$10 USDC earned. Keep going!"}
 {"ts": "2026-09-23T22:41:15.373862Z", "event": "badge_earned", "outcome": "[LEVEL] Earner", "learned": "", "badge_id": "level_2", "desc": "Reached Level 2. Unlocked new abilities."}
 {"ts": "2026-09-23T22:41:15.374474Z", "event": "level_up_ceremony", "outcome": "Level 2 (First Steps)", "learned": ""}
+{"ts": "2026-09-23T23:37:47.537990Z", "event": "test_diagnostic", "outcome": "success", "learned": "Diagnostic check passed"}
+{"ts": "2026-09-23T23:37:47.883573Z", "event": "task_completed", "outcome": "✓ Diagnostic Test Task (audit)", "learned": "", "xp_gained": 10, "task_type": "audit"}
+{"ts": "2026-09-23T23:37:47.890824Z", "event": "badge_earned", "outcome": "[BADGE] First Blood", "learned": "", "badge_id": "first_blood", "desc": "Completed your very first task!"}
+{"ts": "2026-09-23T23:38:41.396769Z", "event": "test_diagnostic", "outcome": "success", "learned": "Diagnostic check passed"}
+{"ts": "2026-09-23T23:38:41.592729Z", "event": "task_completed", "outcome": "✓ Diagnostic Test Task (audit)", "learned": "", "xp_gained": 10, "task_type": "audit"}
+{"ts": "2026-09-23T23:43:19.804047Z", "event": "task_completed", "outcome": "✓ Live Autonomous Run (autonomous_cycle)", "learned": "", "xp_gained": 10, "task_type": "autonomous_cycle"}
+{"ts": "2026-09-23T23:46:55.884263Z", "event": "task_completed", "outcome": "✓ cycle_1 ()", "learned": "", "xp_gained": 10, "task_type": ""}
+{"ts": "2026-09-23T23:54:46.614667+00:00", "event": "test_diagnostic", "outcome": "success", "learned": "Diagnostic check passed"}
+{"ts": "2026-09-23T23:54:46.769661+00:00", "event": "task_completed", "outcome": "✓ Diagnostic Test Task (audit)", "learned": "", "xp_gained": 10, "task_type": "audit"}
+{"ts": "2026-09-23T23:54:46.777673+00:00", "event": "badge_earned", "outcome": "[BADGE] Grinder", "learned": "", "badge_id": "grinder_5", "desc": "Completed 5 tasks. You mean business."}

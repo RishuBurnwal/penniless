@@ -56,8 +56,9 @@ _BADGES: list[dict] = [
     {"id": "five_hundred",  "name": "[BADGE] Five Hundred",       "desc": "$500 USDC earned!",                        "trigger": "earn",  "value": 500.0},
     {"id": "grand",         "name": "[BADGE] Grand",              "desc": "$1000 USDC earned. You made a thousand!", "trigger": "earn",  "value": 1000.0},
     # Level milestones
-    {"id": "level_2",       "name": "[LEVEL] Earner",            "desc": "Reached Level 2. Unlocked new abilities.","trigger": "level", "value": 2},
-    {"id": "level_3",       "name": "[LEVEL] Grinder",           "desc": "Level 3! You're on fire.",                "trigger": "level", "value": 3},
+    {"id": "level_2",       "name": "[LEVEL] First Steps",       "desc": "Reached Level 2. Unlocked new abilities.","trigger": "level", "value": 2},
+    {"id": "level_3",       "name": "[LEVEL] Earner",            "desc": "Level 3! You're an earner now.",          "trigger": "level", "value": 3},
+    {"id": "level_4",       "name": "[LEVEL] Grinder",           "desc": "Level 4! Unstoppable grinding.",          "trigger": "level", "value": 4},
     {"id": "level_5",       "name": "[LEVEL] Autonomous",        "desc": "Level 5 - Fully Autonomous Agent!",       "trigger": "level", "value": 5},
 ]
 
@@ -136,11 +137,13 @@ class RewardSystem:
         if leveled_up:
             self._level_up_ceremony(new_level)
 
-    def on_wallet_checked(self, current_balance: float, prev_balance: float, source: str = "Base") -> bool:
+    def on_wallet_checked(self, current_balance: float, prev_balance: float | None = None, source: str = "Base") -> bool:
         """
         Compare wallet balances. Returns True if earning was detected.
         Call every daemon cycle with latest balance.
         """
+        if prev_balance is None:
+            return False
         if current_balance > prev_balance:
             delta = current_balance - prev_balance
             self.on_earning_detected(amount_usd=delta, source=source)
