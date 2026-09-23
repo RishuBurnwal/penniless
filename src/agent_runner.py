@@ -57,39 +57,26 @@ _SUBMISSIONS_DIR.mkdir(parents=True, exist_ok=True)
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 def _load_skill_context() -> str:
-    if _SKILL_PATH.exists():
-        return _SKILL_PATH.read_text(encoding="utf-8")
     return (
-        "SAFETY RULES (fallback — install skill for full rules):\n"
-        "1. Payment evidence before work — verify the source has paid someone before.\n"
-        "2. Human approves every PR, bid, and account creation.\n"
-        "3. Never move private keys or seed phrases anywhere.\n"
-        "4. Check KYC requirements BEFORE starting work.\n"
-        "5. Log every outward artifact immediately.\n"
+        "CORE SAFETY RULES:\n"
+        "1. Verified escrow only — no unbacked or speculative promises.\n"
+        "2. $0 budget — never spend money to earn money.\n"
+        "3. Protect secrets — never output or expose private keys or API tokens.\n"
+        "4. No fake accounts or KYC circumvention.\n"
+        "5. Complete publication-ready outputs — no placeholders."
     )
 
 
 def _build_system_prompt() -> str:
     skill = _load_skill_context()
-    session_ctx = load_session_context(last_n=8)
-    memory_ctx = memory.recall(last_n=6)
+    session_ctx = load_session_context(last_n=3)
+    memory_ctx = memory.recall(last_n=3)
     reward_ctx = rewards.get_reward_context()
     identity = memory.identity_block()
 
-    session_section = (
-        f"\n────── PREVIOUS SESSION LOG (last 8 calls) ──────\n{session_ctx}\n"
-        "────── END SESSION LOG ──────\n"
-        "Use the above log to avoid repeating failed attempts and to pick up where previous AI left off.\n"
-    ) if session_ctx else ""
-
-    memory_section = (
-        f"\n────── YOUR MEMORY (last 6 episodes) ──────\n{memory_ctx}\n"
-        "────── END MEMORY ──────\n"
-    ) if memory_ctx else ""
-
-    reward_section = (
-        f"\n{reward_ctx}\n"
-    ) if reward_ctx else ""
+    session_section = f"\nRecent Context:\n{session_ctx}\n" if session_ctx else ""
+    memory_section = f"\nRecent Learnings:\n{memory_ctx}\n" if memory_ctx else ""
+    reward_section = f"\n{reward_ctx}\n" if reward_ctx else ""
 
     return f"""You are a careful, honest AI earning agent following these safety rules:
 

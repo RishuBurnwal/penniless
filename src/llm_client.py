@@ -114,7 +114,7 @@ _ALL_PROVIDERS: list[Provider] = [
         api_key=cfg.NVIDIA_API_KEY,
         base_url="https://integrate.api.nvidia.com/v1",
         model="deepseek-ai/deepseek-v4.1-flash",
-        timeout=50,   # benchmarked: 15s for analysis, 45s for 2700-char content
+        timeout=65,   # streaming completes full 3500-char article in 40-58s
     ),
     Provider(
         name="Groq",
@@ -231,11 +231,30 @@ class LLMClient:
 
                 def _call(p=provider, c=client, kw=create_kwargs) -> None:
                     try:
-                        resp = self._call_with_gemini_fallback(c, p, kw)
-                        content = resp.choices[0].message.content or ""
-                        if not content.strip():
-                            # NVIDIA deepseek thinking model puts output in reasoning_content
-                            content = getattr(resp.choices[0].message, "reasoning_content", "") or ""
+                        if p.name == "NVIDIA":
+                            stream_kwargs = dict(kw)
+                            stream_kwargs["stream"] = True
+                            stream_resp = c.chat.completions.create(**stream_kwargs)
+                            content_chunks: list[str] = []
+                            reasoning_chunks: list[str] = []
+                            for chunk in stream_resp:
+                                if chunk.choices and chunk.choices[0].delta:
+                                    delta = chunk.choices[0].delta
+                                    c_text = getattr(delta, "content", "") or ""
+                                    r_text = getattr(delta, "reasoning_content", "") or ""
+                                    if c_text:
+                                        content_chunks.append(c_text)
+                                    if r_text:
+                                        reasoning_chunks.append(r_text)
+                            content = "".join(content_chunks)
+                            if not content.strip():
+                                content = "".join(reasoning_chunks)
+                        else:
+                            resp = self._call_with_gemini_fallback(c, p, kw)
+                            content = resp.choices[0].message.content or ""
+                            if not content.strip():
+                                content = getattr(resp.choices[0].message, "reasoning_content", "") or ""
+
                         if not content.strip():
                             raise ValueError(f"{p.name} returned empty output")
                         result_container.append(content)
