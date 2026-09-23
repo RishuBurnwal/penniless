@@ -336,30 +336,6 @@ def _execute_content_task(proposal: str, autonomous: bool = False, opportunity: 
     opp_title = opportunity.get("title", "Selected Bounty") if opportunity else "Selected Bounty"
     opp_url = opportunity.get("url", "") if opportunity else ""
 
-    content_prompt = f"""You are now producing the submission for the following confirmed bounty:
-Title: {opp_title}
-URL: {opp_url}
-
-Context & Analysis:
-{proposal}
-
-INSTRUCTIONS:
-1. Write the COMPLETE, publication-ready submission right now.
-2. Escrow is pre-verified. Do NOT refuse, do NOT ask for verification, do NOT output tool calls.
-3. If an article or blog post: write a comprehensive markdown article with a compelling title, structured sections, technical depth, and actionable takeaways.
-4. If a Twitter / X thread: write numbered posts (1/N) ready to publish.
-5. If product feedback or audit: provide numbered specific feedback points, UI/UX critique, and concrete improvement proposals.
-
-Begin the full, publication-ready submission now:"""
-
-    response = llm.chat(
-        messages=[{"role": "user", "content": content_prompt}],
-        system=_build_system_prompt(),
-        max_tokens=2500,
-    )
-
-    console.print(Panel(Markdown(response), title="[bold green]✍️ Generated Content[/bold green]", border_style="green"))
-
     # Determine slug and URL from opportunity dict
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     if opportunity and opportunity.get("slug"):
@@ -375,7 +351,57 @@ Begin the full, publication-ready submission now:"""
         sub_url = f"https://superteam.fun/listings/{slug}" if slug_match else f"bounty_{ts}"
 
     sub_file = _SUBMISSIONS_DIR / f"{slug}_{ts}.md"
-    sub_file.write_text(response, encoding="utf-8")
+    sub_file.write_text("", encoding="utf-8")  # initialize target file
+
+    content_prompt = f"""You are now producing the submission for the following confirmed bounty:
+Title: {opp_title}
+URL: {opp_url}
+
+Context & Analysis:
+{proposal}
+
+INSTRUCTIONS:
+1. Write the COMPLETE, publication-ready submission right now.
+2. Structure your output in distinct, numbered parts so the deliverable is clear, comprehensive, and modular:
+   ### PART 1: Executive Overview & Problem Context
+   ### PART 2: Core Deep Dive & Practical Solution
+   ### PART 3: Actionable Roadmap & Recommendations
+   ### PART 4: Conclusion & Verification
+3. Escrow is pre-verified. Do NOT refuse, do NOT ask for verification, do NOT output tool calls.
+4. If a Twitter / X thread: numbered tweets (1/N) with hook, body, and CTA.
+5. If product feedback or audit: numbered specific feedback points with UI/UX critique and feature proposals.
+
+Begin the full, publication-ready submission now:"""
+
+    chunk_count = 0
+    total_chars = 0
+
+    def _save_chunk(chunk: str) -> None:
+        nonlocal chunk_count, total_chars
+        try:
+            with sub_file.open("a", encoding="utf-8") as f:
+                f.write(chunk)
+                f.flush()
+            chunk_count += 1
+            total_chars += len(chunk)
+        except Exception:
+            pass
+
+    console.print(f"  [dim]💾 Streaming chunks in real-time to {sub_file.name}...[/dim]")
+
+    response = llm.chat(
+        messages=[{"role": "user", "content": content_prompt}],
+        system=_build_system_prompt(),
+        max_tokens=2500,
+        on_chunk=_save_chunk,
+    )
+
+    # Ensure file has full response if streaming didn't write for any reason
+    if sub_file.stat().st_size == 0 or total_chars < len(response):
+        sub_file.write_text(response, encoding="utf-8")
+        total_chars = len(response)
+
+    console.print(Panel(Markdown(response), title="[bold green]✍️ Generated Content[/bold green]", border_style="green"))
 
     ledger_entry = f"| {datetime.now().strftime('%Y-%m-%d')} | superteam | {slug} | file:///{sub_file.as_posix()} | Ready (Autonomous) |"
     _append_ledger(ledger_entry)
@@ -388,7 +414,7 @@ Begin the full, publication-ready submission now:"""
         status="ready",
     )
 
-    console.print(f"\n[bold green]💾 Content saved autonomously to:[/bold green] [cyan]{sub_file}[/cyan]")
+    console.print(f"\n[bold green]💾 Content saved chunk-wise to:[/bold green] [cyan]{sub_file}[/cyan] [dim]({total_chars} chars across {max(chunk_count, 1)} chunks)[/dim]")
     console.print(f"[dim]✎ Ledger entry recorded in {_LEDGER_PATH}[/dim]\n")
 
 

@@ -26,7 +26,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Callable
 
 if sys.platform == "win32":
     try:
@@ -182,11 +182,13 @@ class LLMClient:
         max_tokens: int = 4096,
         temperature: float = 0.3,
         silent: bool = False,
+        on_chunk: Optional[Callable[[str], None]] = None,
     ) -> str:
         """
         Send a chat request and return the assistant reply as a string.
         Falls back through providers on any error or timeout.
         Logs every attempt to session_log.jsonl.
+        If on_chunk is provided, streamed token chunks are forwarded in real time.
         """
         if not self.providers:
             raise RuntimeError(
@@ -231,7 +233,7 @@ class LLMClient:
 
                 def _call(p=provider, c=client, kw=create_kwargs) -> None:
                     try:
-                        if p.name == "NVIDIA":
+                        if p.name in ("NVIDIA", "Groq", "OpenAI"):
                             stream_kwargs = dict(kw)
                             stream_kwargs["stream"] = True
                             stream_resp = c.chat.completions.create(**stream_kwargs)
@@ -244,16 +246,31 @@ class LLMClient:
                                     r_text = getattr(delta, "reasoning_content", "") or ""
                                     if c_text:
                                         content_chunks.append(c_text)
+                                        if on_chunk:
+                                            try:
+                                                on_chunk(c_text)
+                                            except Exception:
+                                                pass
                                     if r_text:
                                         reasoning_chunks.append(r_text)
                             content = "".join(content_chunks)
                             if not content.strip():
                                 content = "".join(reasoning_chunks)
+                                if on_chunk and content:
+                                    try:
+                                        on_chunk(content)
+                                    except Exception:
+                                        pass
                         else:
                             resp = self._call_with_gemini_fallback(c, p, kw)
                             content = resp.choices[0].message.content or ""
                             if not content.strip():
                                 content = getattr(resp.choices[0].message, "reasoning_content", "") or ""
+                            if on_chunk and content:
+                                try:
+                                    on_chunk(content)
+                                except Exception:
+                                    pass
 
                         if not content.strip():
                             raise ValueError(f"{p.name} returned empty output")
