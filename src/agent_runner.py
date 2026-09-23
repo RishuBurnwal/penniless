@@ -368,7 +368,7 @@ Begin the full, publication-ready submission now:"""
     response = llm.chat(
         messages=[{"role": "user", "content": content_prompt}],
         system=_build_system_prompt(),
-        max_tokens=4096,
+        max_tokens=2500,
     )
 
     console.print(Panel(Markdown(response), title="[bold green]✍️ Generated Content[/bold green]", border_style="green"))

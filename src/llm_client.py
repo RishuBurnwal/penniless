@@ -114,7 +114,7 @@ _ALL_PROVIDERS: list[Provider] = [
         api_key=cfg.NVIDIA_API_KEY,
         base_url="https://integrate.api.nvidia.com/v1",
         model="deepseek-ai/deepseek-v4.1-flash",
-        timeout=70,   # thinking model needs 50-60s for reasoning + generation
+        timeout=50,   # benchmarked: 15s for analysis, 45s for 2700-char content
     ),
     Provider(
         name="Groq",
