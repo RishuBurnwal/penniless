@@ -9,6 +9,13 @@ status.md
 history.jsonl
 workspaces/
 submissions/
+graphify-out/
+
+# Agent Soul (runtime state — regenerated each session)
+memory/soul.json
+
+# Session log (large, regenerated — keep locally only)
+# session_log.jsonl   ← uncomment to gitignore this too
 
 # Python cache & artifacts
 __pycache__/

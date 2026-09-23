@@ -2,20 +2,31 @@
 llm_client.py — Multi-provider LLM client with automatic fallback
 
 Fallback order (configurable via .env):
-  1. NVIDIA   — deepseek-ai/deepseek-v4.1-flash (nvapi key)
-  2. Gemini   — gemini-3.8-flash / gemini-2.5-flash (Google AI key, auto-fallback)
-  3. Groq     — qwen/qwen3.8-27b                    (groq key)
-  4. OpenAI   — gpt-4o-mini                          (openai key)
-  5. Perplexity — llama-3.1-sonar-large              (pplx key)
+  1. NVIDIA   — deepseek-ai/deepseek-v4.1-flash  (nvapi key)
+  2. Groq     — qwen/qwen3.8-27b                  (groq key)   ← swapped before Gemini (faster)
+  3. Gemini   — gemini-2.5-flash                  (Google key)
+  4. OpenAI   — gpt-4o-mini                       (openai key)
+  5. Perplexity — llama-3.1-sonar-large           (pplx key)
 
-All five providers expose an OpenAI-compatible /v1/chat/completions endpoint,
-so we use a single `openai.OpenAI` client configured with the right base_url
-and api_key per provider — no extra SDKs needed.
+Timeouts (per provider):
+  NVIDIA   → 35s  (thinking model, slow start)
+  Groq     → 30s  (fast)
+  Gemini   → 45s  (can be slow on first call)
+  Others   → 30s
+
+Session log (session_log.jsonl) — every call is appended so the next AI
+picks up from where this one left off.
 """
 from __future__ import annotations
 
+import concurrent.futures
+import json
 import sys
-# Force UTF-8 output on Windows (prevents cp1252 emoji encoding errors)
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
 if sys.platform == "win32":
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -23,14 +34,59 @@ if sys.platform == "win32":
     except Exception:
         pass
 
-from dataclasses import dataclass, field
-from typing import Optional
 import openai
 from rich.console import Console
 
 from src.config import cfg
 
 console = Console()
+
+# Session log path — shared across all LLM calls so any AI can resume context
+_PROJECT_ROOT = Path(__file__).parent.parent
+_SESSION_LOG = _PROJECT_ROOT / "session_log.jsonl"
+
+
+# ─── Session logger ───────────────────────────────────────────────────────────
+
+def _log_session(event: str, provider: str, model: str, success: bool,
+                  prompt_preview: str = "", response_preview: str = "",
+                  error: str = "") -> None:
+    """Append one line to session_log.jsonl for cross-AI continuity."""
+    entry = {
+        "ts": datetime.utcnow().isoformat() + "Z",
+        "event": event,
+        "provider": provider,
+        "model": model,
+        "success": success,
+        "prompt_preview": prompt_preview[:200],
+        "response_preview": response_preview[:300],
+        "error": error[:300] if error else "",
+    }
+    try:
+        with open(_SESSION_LOG, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def load_session_context(last_n: int = 10) -> str:
+    """Load last N session log entries as human-readable context string."""
+    if not _SESSION_LOG.exists():
+        return ""
+    lines = _SESSION_LOG.read_text(encoding="utf-8").strip().splitlines()
+    recent = lines[-last_n:]
+    entries = []
+    for line in recent:
+        try:
+            e = json.loads(line)
+            status = "✅" if e["success"] else "❌"
+            entries.append(
+                f"[{e['ts']}] {status} {e['provider']}/{e['model']} — {e['event']}: "
+                f"{e.get('response_preview','')[:120]}"
+            )
+        except Exception:
+            pass
+    return "\n".join(entries)
 
 
 # ─── Provider registry ────────────────────────────────────────────────────────
@@ -41,6 +97,7 @@ class Provider:
     api_key: str
     base_url: str
     model: str
+    timeout: int = 30                        # per-provider timeout (seconds)
     extra_params: dict = field(default_factory=dict)
 
     @property
@@ -49,42 +106,43 @@ class Provider:
 
 
 # Ordered list — first enabled provider is tried first.
-# To change priority, reorder this list.
-# Models verified working as of 2026-09-24.
+# Groq is before Gemini because it's significantly faster.
 _ALL_PROVIDERS: list[Provider] = [
     Provider(
         name="NVIDIA",
         api_key=cfg.NVIDIA_API_KEY,
         base_url="https://integrate.api.nvidia.com/v1",
-        # deepseek-ai/deepseek-v4.1-flash — verified working with new NVIDIA key (~13s non-streaming)
         model="deepseek-ai/deepseek-v4.1-flash",
-    ),
-    Provider(
-        name="Gemini",
-        api_key=cfg.GEMINI_API_KEY,
-        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-        # Gemini 3.8 Flash with medium reasoning effort (with auto-fallback to 2.5-flash on quota)
-        model=cfg.GEMINI_MODEL,
-        extra_params={"reasoning_effort": cfg.GEMINI_REASONING_EFFORT},
+        timeout=35,   # thinking model needs a bit more time
     ),
     Provider(
         name="Groq",
         api_key=cfg.GROQ_API_KEY,
         base_url="https://api.groq.com/openai/v1",
-        # qwen/qwen3.8-27b — top coding & reasoning model on Groq
         model="qwen/qwen3.8-27b",
+        timeout=30,
+    ),
+    Provider(
+        name="Gemini",
+        api_key=cfg.GEMINI_API_KEY,
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        model=cfg.GEMINI_MODEL,
+        timeout=45,
+        extra_params={"reasoning_effort": cfg.GEMINI_REASONING_EFFORT},
     ),
     Provider(
         name="OpenAI",
         api_key=cfg.OPENAI_API_KEY,
         base_url="https://api.openai.com/v1",
         model="gpt-4o-mini",
+        timeout=30,
     ),
     Provider(
         name="Perplexity",
         api_key=cfg.PERPLEXITY_API_KEY,
         base_url="https://api.perplexity.ai",
         model="llama-3.1-sonar-large-128k-online",
+        timeout=30,
     ),
 ]
 
@@ -94,11 +152,10 @@ _ALL_PROVIDERS: list[Provider] = [
 class LLMClient:
     """
     Sends chat messages to the first available LLM provider.
-    On any error, automatically falls back to the next provider in the list.
+    On any error OR timeout, automatically falls back to the next provider.
 
-    Usage:
-        from src.llm_client import llm
-        reply = llm.chat([{"role": "user", "content": "Hello"}])
+    Session log (session_log.jsonl) is updated after every call so the next
+    AI process can pick up context seamlessly.
     """
 
     def __init__(self) -> None:
@@ -106,12 +163,11 @@ class LLMClient:
 
     def _refresh(self) -> None:
         """Re-evaluate which providers are enabled (call after config reload)."""
-        # Sync provider keys with current config values
         _ALL_PROVIDERS[0].api_key = cfg.NVIDIA_API_KEY
-        _ALL_PROVIDERS[1].api_key = cfg.GEMINI_API_KEY
-        _ALL_PROVIDERS[1].model = cfg.GEMINI_MODEL
-        _ALL_PROVIDERS[1].extra_params = {"reasoning_effort": cfg.GEMINI_REASONING_EFFORT}
-        _ALL_PROVIDERS[2].api_key = cfg.GROQ_API_KEY
+        _ALL_PROVIDERS[1].api_key = cfg.GROQ_API_KEY
+        _ALL_PROVIDERS[2].api_key = cfg.GEMINI_API_KEY
+        _ALL_PROVIDERS[2].model = cfg.GEMINI_MODEL
+        _ALL_PROVIDERS[2].extra_params = {"reasoning_effort": cfg.GEMINI_REASONING_EFFORT}
         _ALL_PROVIDERS[3].api_key = cfg.OPENAI_API_KEY
         _ALL_PROVIDERS[4].api_key = cfg.PERPLEXITY_API_KEY
         self.providers = [p for p in _ALL_PROVIDERS if p.enabled]
@@ -128,24 +184,13 @@ class LLMClient:
     ) -> str:
         """
         Send a chat request and return the assistant reply as a string.
-
-        Args:
-            messages:    List of {"role": "user"|"assistant", "content": "..."} dicts.
-            system:      Optional system prompt prepended automatically.
-            max_tokens:  Maximum tokens in the reply.
-            temperature: Sampling temperature (lower = more deterministic).
-            silent:      If True, suppress provider-selection output.
-
-        Returns:
-            The assistant's reply as a plain string.
-
-        Raises:
-            RuntimeError: if every configured provider fails.
+        Falls back through providers on any error or timeout.
+        Logs every attempt to session_log.jsonl.
         """
         if not self.providers:
             raise RuntimeError(
                 "No LLM provider configured. "
-                "Add at least one API key to .env (NVIDIA_API_KEY, GEMINI_API_KEY, GROQ_API_KEY, …)"
+                "Add at least one API key to .env (NVIDIA_API_KEY, GROQ_API_KEY, GEMINI_API_KEY, …)"
             )
 
         full_messages: list[dict] = []
@@ -153,21 +198,24 @@ class LLMClient:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
 
+        prompt_preview = (messages[-1].get("content", "") if messages else "")[:200]
         last_error: Exception | None = None
 
         for provider in self.providers:
+            if not silent:
+                effort_tag = (
+                    f" (effort: {provider.extra_params.get('reasoning_effort')})"
+                    if provider.extra_params.get("reasoning_effort") else ""
+                )
+                console.print(f"  [dim]-> [{provider.name}] {provider.model}{effort_tag} (max {provider.timeout}s)[/dim]")
+
             try:
-                if not silent:
-                    effort_tag = f" (effort: {provider.extra_params.get('reasoning_effort')})" if provider.extra_params.get('reasoning_effort') else ""
-                    console.print(
-                        f"  [dim]-> [{provider.name}] {provider.model}{effort_tag}[/dim]"
-                    )
                 client = openai.OpenAI(
                     api_key=provider.api_key,
                     base_url=provider.base_url,
-                    timeout=120,
+                    timeout=provider.timeout,
                 )
-                create_kwargs = {
+                create_kwargs: dict = {
                     "model": provider.model,
                     "messages": full_messages,
                     "max_tokens": max_tokens,
@@ -176,43 +224,65 @@ class LLMClient:
                 if provider.extra_params:
                     create_kwargs.update(provider.extra_params)
 
-                try:
-                    response = client.chat.completions.create(**create_kwargs)
-                except openai.RateLimitError as rle:
-                    # If Gemini 3.8 hits quota/rate limit, auto-fallback to gemini-2.5-flash
-                    if provider.name == "Gemini" and provider.model != "gemini-2.5-flash":
-                        console.print(f"  [yellow]⚠ Gemini: {provider.model} quota limit hit, auto-falling back to gemini-2.5-flash[/yellow]")
-                        fallback_kwargs = dict(create_kwargs)
-                        fallback_kwargs["model"] = "gemini-2.5-flash"
-                        fallback_kwargs.pop("reasoning_effort", None)
-                        response = client.chat.completions.create(**fallback_kwargs)
-                    else:
-                        raise rle
-                except openai.BadRequestError as bre:
-                    if provider.extra_params and "reasoning_effort" in create_kwargs:
-                        create_kwargs.pop("reasoning_effort", None)
-                        response = client.chat.completions.create(**create_kwargs)
-                    else:
-                        raise bre
+                # Hard wall-clock timeout via thread — catches NVIDIA's long
+                # internal thinking phase that httpx timeout alone can't stop.
+                def _call() -> str:
+                    resp = self._call_with_gemini_fallback(client, provider, create_kwargs)
+                    content = resp.choices[0].message.content or ""
+                    if not content.strip():
+                        raise ValueError(f"{provider.name} returned empty output")
+                    return content
 
-                content = response.choices[0].message.content or ""
-                if not content.strip():
-                    raise ValueError(f"{provider.name} ({provider.model}) returned empty output")
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                    future = ex.submit(_call)
+                    try:
+                        content = future.result(timeout=provider.timeout)
+                    except concurrent.futures.TimeoutError:
+                        raise TimeoutError(f"{provider.name} exceeded {provider.timeout}s wall-clock limit")
+
+                _log_session("chat_ok", provider.name, provider.model, True,
+                             prompt_preview, content[:300])
                 return content
 
+            except (TimeoutError, openai.APITimeoutError) as e:
+                msg = f"timeout after {provider.timeout}s — trying next provider"
+                console.print(f"  [yellow]⏱ {provider.name}: {msg}[/yellow]")
+                _log_session("chat_timeout", provider.name, provider.model, False,
+                             prompt_preview, error=msg)
+                last_error = e
+
             except openai.AuthenticationError as e:
-                console.print(
-                    f"  [red]✗ {provider.name}: authentication failed — check your API key[/red]"
-                )
+                msg = "authentication failed — check API key"
+                console.print(f"  [red]✗ {provider.name}: {msg}[/red]")
+                _log_session("chat_auth_fail", provider.name, provider.model, False,
+                             prompt_preview, error=str(e)[:200])
                 last_error = e
+
             except openai.RateLimitError as e:
-                console.print(f"  [yellow]⚠ {provider.name}: rate limit hit, trying next[/yellow]")
+                msg = "rate limit / quota exhausted"
+                console.print(f"  [yellow]⚠ {provider.name}: {msg} — trying next[/yellow]")
+                _log_session("chat_rate_limit", provider.name, provider.model, False,
+                             prompt_preview, error=str(e)[:200])
                 last_error = e
+
             except openai.APIConnectionError as e:
-                console.print(f"  [yellow]⚠ {provider.name}: connection error, trying next[/yellow]")
+                msg = "connection error"
+                console.print(f"  [yellow]⚠ {provider.name}: {msg} — trying next[/yellow]")
+                _log_session("chat_conn_error", provider.name, provider.model, False,
+                             prompt_preview, error=str(e)[:200])
                 last_error = e
+
+            except ValueError as e:
+                # Empty response
+                console.print(f"  [yellow]⚠ {provider.name}: {e} — trying next[/yellow]")
+                _log_session("chat_empty", provider.name, provider.model, False,
+                             prompt_preview, error=str(e))
+                last_error = e
+
             except Exception as e:
                 console.print(f"  [yellow]⚠ {provider.name}: {type(e).__name__}: {e}[/yellow]")
+                _log_session("chat_error", provider.name, provider.model, False,
+                             prompt_preview, error=f"{type(e).__name__}: {e}")
                 last_error = e
 
         raise RuntimeError(
@@ -220,33 +290,47 @@ class LLMClient:
             "Check your API keys in .env"
         )
 
+    def _call_with_gemini_fallback(self, client, provider: Provider, kwargs: dict):
+        """Handle Gemini-specific model fallback and reasoning_effort stripping."""
+        try:
+            return client.chat.completions.create(**kwargs)
+        except openai.RateLimitError as rle:
+            if provider.name == "Gemini" and kwargs.get("model") != "gemini-2.5-flash":
+                console.print(f"  [yellow]⚠ Gemini quota hit — falling back to gemini-2.5-flash[/yellow]")
+                fb = dict(kwargs)
+                fb["model"] = "gemini-2.5-flash"
+                fb.pop("reasoning_effort", None)
+                return client.chat.completions.create(**fb)
+            raise rle
+        except openai.BadRequestError as bre:
+            if "reasoning_effort" in kwargs:
+                fb = dict(kwargs)
+                fb.pop("reasoning_effort", None)
+                return client.chat.completions.create(**fb)
+            raise bre
+
+    # ── Utilities ─────────────────────────────────────────────────────────────
+
     def active_provider_names(self) -> list[str]:
-        """Return names of all enabled providers in fallback order."""
         return [p.name for p in self.providers]
 
     def active_summary(self) -> str:
-        """Human-readable summary of active providers."""
         if not self.providers:
             return "none"
-        parts = [f"{p.name}({p.model.split('/')[-1]})" for p in self.providers]
-        return " → ".join(parts)
+        return " → ".join(f"{p.name}({p.model.split('/')[-1]})" for p in self.providers)
 
     def test_all(self) -> dict[str, bool]:
-        """
-        Quick smoke-test every configured provider.
-        Returns dict of {provider_name: success}.
-        """
+        """Quick smoke-test every configured provider."""
         results: dict[str, bool] = {}
         test_msg = [{"role": "user", "content": 'Reply with exactly: "OK"'}]
-
         for provider in self.providers:
             try:
                 client = openai.OpenAI(
                     api_key=provider.api_key,
                     base_url=provider.base_url,
-                    timeout=120,
+                    timeout=provider.timeout,
                 )
-                kwargs = {
+                kwargs: dict = {
                     "model": provider.model,
                     "messages": test_msg,
                     "max_tokens": 200,
@@ -254,22 +338,13 @@ class LLMClient:
                 }
                 if provider.extra_params:
                     kwargs.update(provider.extra_params)
-                try:
-                    resp = client.chat.completions.create(**kwargs)
-                except openai.RateLimitError:
-                    if provider.name == "Gemini":
-                        kwargs["model"] = "gemini-2.5-flash"
-                        kwargs.pop("reasoning_effort", None)
-                        resp = client.chat.completions.create(**kwargs)
-                    else:
-                        raise
-                except openai.BadRequestError:
-                    kwargs.pop("reasoning_effort", None)
-                    resp = client.chat.completions.create(**kwargs)
-
+                resp = self._call_with_gemini_fallback(client, provider, kwargs)
                 results[provider.name] = bool((resp.choices[0].message.content or "").strip())
-            except Exception:
+                _log_session("test_ok", provider.name, provider.model, results[provider.name])
+            except Exception as e:
                 results[provider.name] = False
+                _log_session("test_fail", provider.name, provider.model, False,
+                             error=f"{type(e).__name__}: {e}")
         return results
 
 

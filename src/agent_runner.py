@@ -36,7 +36,7 @@ from rich.table import Table
 from rich import box
 
 from src.config import cfg
-from src.llm_client import llm
+from src.llm_client import llm, load_session_context
 from src.bounty_scanner import scan_all
 from src.wallet_monitor import get_status
 from src.git_executor import git_exec, normalize_repo_name
@@ -69,10 +69,17 @@ def _load_skill_context() -> str:
 
 def _build_system_prompt() -> str:
     skill = _load_skill_context()
+    session_ctx = load_session_context(last_n=8)
+    session_section = (
+        f"\n────── PREVIOUS SESSION LOG (last 8 calls) ──────\n{session_ctx}\n"
+        "────── END SESSION LOG ──────\n"
+        "Use the above log to avoid repeating failed attempts and to pick up where previous AI left off.\n"
+    ) if session_ctx else ""
+
     return f"""You are a careful, honest AI earning agent following these safety rules:
 
 {skill}
-
+{session_section}
 ────────────────────────────────────────────
 Agent name : {cfg.AGENT_NAME}
 Base wallet: {cfg.EVM_WALLET or "not set"}
@@ -523,58 +530,90 @@ def run_agent(autonomous: bool = False) -> bool:
             console.print("[dim]Type GO, SKIP, or QUIT[/dim]")
 
 
-def run_autonomous_daemon(interval_minutes: int = 15) -> None:
+def run_autonomous_daemon() -> None:
     """
     Relentlessly loop through bounties, solve them, and submit work
-    non-stop until earnings appear in the wallet.
+    non-stop until earnings appear in the wallet (or Ctrl+C).
+
+    Fallback chain (per LLM call):
+      NVIDIA (35s) → Groq (30s) → Gemini (45s) → OpenAI → Perplexity
+    Every call is logged to session_log.jsonl so the next AI can resume.
     """
     import time
 
     task_count = 0
+    prev_balance = 0.0
+
     console.clear()
     console.print(Panel(
-        f"[bold green]🚀 Relentless Autonomous Earning Daemon Running[/bold green]\n\n"
-        f"• Goal: Continue working non-stop until earnings arrive in wallet\n"
-        f"• Pipeline: Auto-Discover ➔ Auto-Solve ➔ Auto-Submit PR/Content ➔ Next Task\n"
-        f"• Non-stop: Submits a task, pauses 15s for rate limits, then grabs next task immediately\n"
-        f"• Press [bold red]Ctrl + C[/bold red] at any time to stop",
+        f"[bold green]🚀 Relentless Autonomous Earning Daemon[/bold green]\n\n"
+        f"  Pipeline : Auto-Scan ➔ AI-Select ➔ Auto-Solve ➔ Auto-Submit ➔ Next\n"
+        f"  LLMs     : {llm.active_summary()}\n"
+        f"  Fallback : NVIDIA(35s) → Groq(30s) → Gemini(45s) → ...\n"
+        f"  Log      : session_log.jsonl (used by next AI as context)\n"
+        f"  Stop     : [bold red]Ctrl+C[/bold red]",
         title="[bold cyan]100% Hands-Free Earning Engine[/bold cyan]",
         border_style="green",
     ))
 
     try:
         while True:
-            # 1. Check wallet balance
-            status = get_status()
-            current_balance = status.get("total_usd", 0.0)
-            if current_balance > 0.0:
+            # ── 1. Wallet check ──────────────────────────────────────────────
+            try:
+                status = get_status()
+                current_balance = float(status.get("total_usd", 0.0) or 0.0)
+            except Exception:
+                current_balance = 0.0
+
+            if current_balance > 0.0 and current_balance != prev_balance:
                 console.print(Panel(
-                    f"[bold green]🎉 SUCCESS! EARNING RECEIVED IN WALLET![/bold green]\n\n"
-                    f"• Total Balance: [bold yellow]${current_balance:.4f} USDC[/bold yellow]\n"
-                    f"• Base (EVM): {status.get('base_usdc')} USDC\n"
-                    f"• Solana: {status.get('sol_usdc')} USDC\n"
-                    f"• Total Tasks Completed: {tracker.count_submitted()}",
+                    f"[bold green]🎉 EARNING RECEIVED IN WALLET![/bold green]\n\n"
+                    f"  Total  : [bold yellow]${current_balance:.4f} USDC[/bold yellow]\n"
+                    f"  Tasks  : {tracker.count_submitted()}",
                     title="[bold yellow]💰 ON-CHAIN EARNING VERIFIED[/bold yellow]",
                     border_style="green",
                 ))
+                prev_balance = current_balance
+                # Keep running — don't stop, earn more!
 
+            # ── 2. Work cycle ────────────────────────────────────────────────
             task_count += 1
-            console.print(f"\n[bold magenta]═════════════════ WORK CYCLE #{task_count} ═════════════════[/bold magenta]\n")
-            
+            console.print(
+                f"\n[bold magenta]══════════ CYCLE #{task_count} | "
+                f"Completed: {tracker.count_submitted()} | "
+                f"Balance: ${current_balance:.4f} USDC ══════════[/bold magenta]\n"
+            )
+
             had_work = False
             try:
                 had_work = run_agent(autonomous=True)
+            except RuntimeError as e:
+                # All LLM providers exhausted
+                console.print(f"\n[bold red]⚠ All LLM providers failed: {e}[/bold red]")
+                console.print("[dim]Waiting 60s before retrying...[/dim]")
+                time.sleep(60)
+                continue
             except Exception as e:
-                console.print(f"\n[bold red]Work cycle #{task_count} error: {e}[/bold red]")
+                console.print(f"\n[bold red]Cycle #{task_count} error: {e}[/bold red]")
 
+            # ── 3. Next task timing ──────────────────────────────────────────
             if had_work:
-                # Successfully submitted a task! Move immediately to the next available task
-                console.print(f"\n[bold green]✓ Task #{task_count} submitted![/bold green] [bold cyan]⚡ Auto-jumping to next bounty in 5s...[/bold cyan]\n")
-                for s in range(5, 0, -1):
-                    time.sleep(1)
+                console.print(
+                    f"\n[bold green]✓ Task #{task_count} done![/bold green] "
+                    f"[cyan]⚡ Next bounty in 5s...[/cyan]\n"
+                )
+                time.sleep(5)
             else:
-                # All currently listed opportunities have been submitted, wait for new ones
-                console.print(f"\n[dim]All current bounties completed. Waiting 120s for new listings... (Ctrl+C to stop)[/dim]")
-                time.sleep(120)
+                console.print(
+                    f"\n[dim]No fresh bounties right now. Waiting 90s for new listings... "
+                    f"(Ctrl+C to stop)[/dim]"
+                )
+                time.sleep(90)
+
     except KeyboardInterrupt:
-        console.print("\n\n[bold yellow]⏹ Autonomous daemon stopped by user.[/bold yellow]\n")
+        console.print("\n\n[bold yellow]⏹ Daemon stopped by user.[/bold yellow]\n")
+        console.print(
+            f"  Tasks completed this session : [bold green]{tracker.count_submitted()}[/bold green]\n"
+            f"  Session log saved to         : [cyan]session_log.jsonl[/cyan]\n"
+        )
+
