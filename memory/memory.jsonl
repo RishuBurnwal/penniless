@@ -1,0 +1,9 @@
+{"ts": "2026-09-23T22:36:21.453370Z", "event": "task_completed", "outcome": "✓ Anti Brain Drain Article (written_content)", "learned": "", "xp_gained": 10, "task_type": "written_content"}
+{"ts": "2026-09-23T22:40:39.396247Z", "event": "task_completed", "outcome": "✓ Anti Brain Drain Article (written_content)", "learned": "", "xp_gained": 10, "task_type": "written_content"}
+{"ts": "2026-09-23T22:41:15.358963Z", "event": "task_completed", "outcome": "✓ Anti Brain Drain Article (written_content)", "learned": "", "xp_gained": 10, "task_type": "written_content"}
+{"ts": "2026-09-23T22:41:15.361923Z", "event": "earning_detected", "outcome": "$50.0000 USDC from Superteam", "learned": "Earning confirmed from Superteam — strategy is working", "amount_usd": 50.0, "source": "Superteam", "xp_gained": 100}
+{"ts": "2026-09-23T22:41:15.363557Z", "event": "level_up", "outcome": "Level 1 → 2 (First Steps)", "learned": "Earned $50.00"}
+{"ts": "2026-09-23T22:41:15.367358Z", "event": "badge_earned", "outcome": "[BADGE] First Dollar", "learned": "", "badge_id": "first_dollar", "desc": "First real USDC earned! Game starts now."}
+{"ts": "2026-09-23T22:41:15.369773Z", "event": "badge_earned", "outcome": "[BADGE] Ten Bucks", "learned": "", "badge_id": "ten_bucks", "desc": "$10 USDC earned. Keep going!"}
+{"ts": "2026-09-23T22:41:15.373862Z", "event": "badge_earned", "outcome": "[LEVEL] Earner", "learned": "", "badge_id": "level_2", "desc": "Reached Level 2. Unlocked new abilities."}
+{"ts": "2026-09-23T22:41:15.374474Z", "event": "level_up_ceremony", "outcome": "Level 2 (First Steps)", "learned": ""}

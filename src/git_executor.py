@@ -105,9 +105,10 @@ class GitExecutor:
             clean_branch = "fix-bounty-patch"
 
         console.print(f"  [dim]Checking out branch: {clean_branch}[/dim]")
-        # Checkout clean default branch first (main or master)
-        _run_cmd(["git", "checkout", "main"], cwd=repo_dir)
-        _run_cmd(["git", "checkout", "master"], cwd=repo_dir)
+        # BUG-007 fix: try main first; only try master if main fails
+        res_default = _run_cmd(["git", "checkout", "main"], cwd=repo_dir)
+        if res_default.returncode != 0:
+            _run_cmd(["git", "checkout", "master"], cwd=repo_dir)
         # Create branch
         res = _run_cmd(["git", "checkout", "-b", clean_branch], cwd=repo_dir)
         if res.returncode != 0:

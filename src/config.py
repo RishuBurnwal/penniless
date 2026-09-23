@@ -17,7 +17,7 @@ class Config:
     # ── LLM providers
     NVIDIA_API_KEY: str = os.getenv("NVIDIA_API_KEY", "").strip()
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "").strip()
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()  # BUG-005 fixed: gemini-3.8-flash does not exist
     GEMINI_REASONING_EFFORT: str = os.getenv("GEMINI_REASONING_EFFORT", "medium").strip()
     GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "").strip()
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "").strip()

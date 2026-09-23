@@ -224,13 +224,16 @@ class LLMClient:
                 if provider.extra_params:
                     create_kwargs.update(provider.extra_params)
 
-                # Hard wall-clock timeout via thread — catches NVIDIA's long
-                # internal thinking phase that httpx timeout alone can't stop.
-                def _call() -> str:
-                    resp = self._call_with_gemini_fallback(client, provider, create_kwargs)
+                # BUG-001 fix: capture loop vars as default args (not by reference)
+                # BUG-010 fix: check reasoning_content for NVIDIA thinking model
+                def _call(p=provider, c=client, kw=create_kwargs) -> str:
+                    resp = self._call_with_gemini_fallback(c, p, kw)
                     content = resp.choices[0].message.content or ""
                     if not content.strip():
-                        raise ValueError(f"{provider.name} returned empty output")
+                        # NVIDIA deepseek thinking model puts output in reasoning_content
+                        content = getattr(resp.choices[0].message, "reasoning_content", "") or ""
+                    if not content.strip():
+                        raise ValueError(f"{p.name} returned empty output")
                     return content
 
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:

@@ -41,6 +41,8 @@ from src.bounty_scanner import scan_all
 from src.wallet_monitor import get_status
 from src.git_executor import git_exec, normalize_repo_name
 from src.task_tracker import tracker
+from src.memory import memory
+from src.reward_system import rewards
 
 console = Console()
 
@@ -70,16 +72,31 @@ def _load_skill_context() -> str:
 def _build_system_prompt() -> str:
     skill = _load_skill_context()
     session_ctx = load_session_context(last_n=8)
+    memory_ctx = memory.recall(last_n=6)
+    reward_ctx = rewards.get_reward_context()
+    identity = memory.identity_block()
+
     session_section = (
         f"\n────── PREVIOUS SESSION LOG (last 8 calls) ──────\n{session_ctx}\n"
         "────── END SESSION LOG ──────\n"
         "Use the above log to avoid repeating failed attempts and to pick up where previous AI left off.\n"
     ) if session_ctx else ""
 
+    memory_section = (
+        f"\n────── YOUR MEMORY (last 6 episodes) ──────\n{memory_ctx}\n"
+        "────── END MEMORY ──────\n"
+    ) if memory_ctx else ""
+
+    reward_section = (
+        f"\n{reward_ctx}\n"
+    ) if reward_ctx else ""
+
     return f"""You are a careful, honest AI earning agent following these safety rules:
 
 {skill}
-{session_section}
+{session_section}{memory_section}{reward_section}
+────────────────────────────────────────────
+{identity}
 ────────────────────────────────────────────
 Agent name : {cfg.AGENT_NAME}
 Base wallet: {cfg.EVM_WALLET or "not set"}
@@ -88,7 +105,7 @@ Budget     : $0 — never spend money to earn money
 ────────────────────────────────────────────
 
 You find legitimate tasks where code contributions earn real money (USDC).
-You NEVER start work without explicit human GO.
+You NEVER start work without explicit human GO (in interactive mode).
 You NEVER create accounts without human consent.
 You ALWAYS cite verifiable evidence of past payment.
 """
@@ -324,7 +341,7 @@ Approved proposal:
     )
 
 
-def _execute_content_task(proposal: str, autonomous: bool = False) -> None:
+def _execute_content_task(proposal: str, autonomous: bool = False, opportunity: dict | None = None) -> None:
     """Generate actual written content and save submission artifact."""
     console.print("\n[bold green]✍️ Generating submission-ready content...[/bold green]\n")
 
@@ -349,15 +366,24 @@ Write the FULL content now."""
 
     console.print(Panel(Markdown(response), title="[bold green]✍️ Generated Content[/bold green]", border_style="green"))
 
-    # Autonomously save artifact to submissions folder
+    # BUG-004 fix: use opportunity dict url/slug directly — never rely on LLM prose regex
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    # Extract brief slug from proposal
-    slug_match = re.search(r"listings/([a-zA-Z0-9_\-]+)", proposal)
-    slug = slug_match.group(1)[:30] if slug_match else f"bounty_{ts}"
+    if opportunity and opportunity.get("url"):
+        opp_url = opportunity["url"]
+        # Extract slug from the actual URL (not LLM prose)
+        slug_match = re.search(r"listings/([a-zA-Z0-9_\-]+)", opp_url)
+        slug = (slug_match.group(1)[:30] if slug_match
+                else opportunity.get("slug", f"bounty_{ts}")[:30])
+        sub_url = opp_url
+    else:
+        # Fallback: try regex on proposal, then timestamp
+        slug_match = re.search(r"listings/([a-zA-Z0-9_\-]+)", proposal)
+        slug = slug_match.group(1)[:30] if slug_match else f"bounty_{ts}"
+        sub_url = f"https://superteam.fun/listings/{slug}" if slug_match else f"bounty_{ts}"
+
     sub_file = _SUBMISSIONS_DIR / f"{slug}_{ts}.md"
     sub_file.write_text(response, encoding="utf-8")
 
-    sub_url = f"https://superteam.fun/listings/{slug}" if slug_match else str(sub_file)
     ledger_entry = f"| {datetime.now().strftime('%Y-%m-%d')} | superteam | {slug} | file:///{sub_file.as_posix()} | Ready (Autonomous) |"
     _append_ledger(ledger_entry)
 
@@ -549,8 +575,9 @@ def run_autonomous_daemon() -> None:
         f"[bold green]🚀 Relentless Autonomous Earning Daemon[/bold green]\n\n"
         f"  Pipeline : Auto-Scan ➔ AI-Select ➔ Auto-Solve ➔ Auto-Submit ➔ Next\n"
         f"  LLMs     : {llm.active_summary()}\n"
-        f"  Fallback : NVIDIA(35s) → Groq(30s) → Gemini(45s) → ...\n"
-        f"  Log      : session_log.jsonl (used by next AI as context)\n"
+        f"  Fallback : NVIDIA(40s) → Groq(30s) → Gemini(50s) → ...\n"
+        f"  Log      : session_log.jsonl + memory/memory.jsonl\n"
+        f"  Soul     : {rewards.status_line()}\n"
         f"  Stop     : [bold red]Ctrl+C[/bold red]",
         title="[bold cyan]100% Hands-Free Earning Engine[/bold cyan]",
         border_style="green",
@@ -558,29 +585,31 @@ def run_autonomous_daemon() -> None:
 
     try:
         while True:
-            # ── 1. Wallet check ──────────────────────────────────────────────
+            # ── 1. Wallet check + earning detection ──────────────────────────
             try:
                 status = get_status()
                 current_balance = float(status.get("total_usd", 0.0) or 0.0)
             except Exception:
                 current_balance = 0.0
 
-            if current_balance > 0.0 and current_balance != prev_balance:
-                console.print(Panel(
-                    f"[bold green]🎉 EARNING RECEIVED IN WALLET![/bold green]\n\n"
-                    f"  Total  : [bold yellow]${current_balance:.4f} USDC[/bold yellow]\n"
-                    f"  Tasks  : {tracker.count_submitted()}",
-                    title="[bold yellow]💰 ON-CHAIN EARNING VERIFIED[/bold yellow]",
-                    border_style="green",
-                ))
+            # Reward system: detect if earning arrived
+            rewards.on_wallet_checked(
+                current_balance=current_balance,
+                prev_balance=prev_balance,
+                source="Base/Solana",
+            )
+            if current_balance != prev_balance and prev_balance > 0:
                 prev_balance = current_balance
-                # Keep running — don't stop, earn more!
+            elif prev_balance == 0.0:
+                prev_balance = current_balance
 
             # ── 2. Work cycle ────────────────────────────────────────────────
             task_count += 1
             console.print(
                 f"\n[bold magenta]══════════ CYCLE #{task_count} | "
-                f"Completed: {tracker.count_submitted()} | "
+                f"Completed: {memory.soul.get('tasks_completed', 0)} | "
+                f"Earned: ${memory.soul.get('total_earned_usd', 0.0):.4f} | "
+                f"Level: {memory.soul.get('level', 1)} | "
                 f"Balance: ${current_balance:.4f} USDC ══════════[/bold magenta]\n"
             )
 
@@ -591,24 +620,32 @@ def run_autonomous_daemon() -> None:
                 # All LLM providers exhausted
                 console.print(f"\n[bold red]⚠ All LLM providers failed: {e}[/bold red]")
                 console.print("[dim]Waiting 60s before retrying...[/dim]")
+                memory.reflect(event="llm_exhausted", outcome=str(e)[:200])
                 time.sleep(60)
                 continue
             except Exception as e:
-                console.print(f"\n[bold red]Cycle #{task_count} error: {e}[/bold red]")
+                console.print(f"\n[bold red]Cycle #{task_count} error: {type(e).__name__}: {e}[/bold red]")
+                console.print("[dim]Waiting 30s before next cycle...[/dim]")
+                memory.reflect(event="cycle_error", outcome=f"{type(e).__name__}: {e}"[:200])
+                time.sleep(30)
+                continue
 
             # ── 3. Next task timing ──────────────────────────────────────────
             if had_work:
+                rewards.on_task_completed(task_title=f"cycle_{task_count}")
                 console.print(
                     f"\n[bold green]✓ Task #{task_count} done![/bold green] "
                     f"[cyan]⚡ Next bounty in 5s...[/cyan]\n"
                 )
                 time.sleep(5)
             else:
+                memory.reflect(event="no_bounties", outcome="No fresh unattempted bounties found")
                 console.print(
                     f"\n[dim]No fresh bounties right now. Waiting 90s for new listings... "
                     f"(Ctrl+C to stop)[/dim]"
                 )
                 time.sleep(90)
+
 
     except KeyboardInterrupt:
         console.print("\n\n[bold yellow]⏹ Daemon stopped by user.[/bold yellow]\n")
