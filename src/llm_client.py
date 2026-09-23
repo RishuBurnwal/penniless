@@ -20,6 +20,7 @@ picks up from where this one left off.
 from __future__ import annotations
 
 import concurrent.futures
+import threading
 import json
 import sys
 from dataclasses import dataclass, field
@@ -113,7 +114,7 @@ _ALL_PROVIDERS: list[Provider] = [
         api_key=cfg.NVIDIA_API_KEY,
         base_url="https://integrate.api.nvidia.com/v1",
         model="deepseek-ai/deepseek-v4.1-flash",
-        timeout=35,   # thinking model needs a bit more time
+        timeout=70,   # thinking model needs 50-60s for reasoning + generation
     ),
     Provider(
         name="Groq",
@@ -224,25 +225,37 @@ class LLMClient:
                 if provider.extra_params:
                     create_kwargs.update(provider.extra_params)
 
-                # BUG-001 fix: capture loop vars as default args (not by reference)
-                # BUG-010 fix: check reasoning_content for NVIDIA thinking model
-                def _call(p=provider, c=client, kw=create_kwargs) -> str:
-                    resp = self._call_with_gemini_fallback(c, p, kw)
-                    content = resp.choices[0].message.content or ""
-                    if not content.strip():
-                        # NVIDIA deepseek thinking model puts output in reasoning_content
-                        content = getattr(resp.choices[0].message, "reasoning_content", "") or ""
-                    if not content.strip():
-                        raise ValueError(f"{p.name} returned empty output")
-                    return content
+                # Daemon thread ensures hung background connections never block process exit or subsequent cycles
+                result_container: list[str] = []
+                error_container: list[Exception] = []
 
-                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-                    future = ex.submit(_call)
+                def _call(p=provider, c=client, kw=create_kwargs) -> None:
                     try:
-                        content = future.result(timeout=provider.timeout)
-                    except concurrent.futures.TimeoutError:
-                        raise TimeoutError(f"{provider.name} exceeded {provider.timeout}s wall-clock limit")
+                        resp = self._call_with_gemini_fallback(c, p, kw)
+                        content = resp.choices[0].message.content or ""
+                        if not content.strip():
+                            # NVIDIA deepseek thinking model puts output in reasoning_content
+                            content = getattr(resp.choices[0].message, "reasoning_content", "") or ""
+                        if not content.strip():
+                            raise ValueError(f"{p.name} returned empty output")
+                        result_container.append(content)
+                    except Exception as exc:
+                        error_container.append(exc)
 
+                t = threading.Thread(target=_call, daemon=True)
+                t.start()
+                t.join(timeout=provider.timeout)
+
+                if t.is_alive():
+                    raise TimeoutError(f"{provider.name} exceeded {provider.timeout}s — trying next provider")
+
+                if error_container:
+                    raise error_container[0]
+
+                if not result_container:
+                    raise ValueError(f"{provider.name} produced no output")
+
+                content = result_container[0]
                 _log_session("chat_ok", provider.name, provider.model, True,
                              prompt_preview, content[:300])
                 return content
