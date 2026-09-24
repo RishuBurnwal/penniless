@@ -15,3 +15,8 @@
 | 2026-09-24 | BUG-017 | Safe numeric parsing and null protection | bounty_scanner.py | No TypeError/AttributeError on nulls | FIXED-VERIFIED |
 | 2026-09-24 | BUG-018 | Update Groq test model to qwen/qwen3.8-27b | installer.py | Correct model tested | FIXED-VERIFIED |
 | 2026-09-24 | BUG-019 | Pause on Option 2 exit before console.clear() | main.py | User can read completion stats | FIXED-VERIFIED |
+| 2026-09-24 | BUG-020 | Moved on_task_completed into task executors | agent_runner.py | Single cycle & Interactive mode award XP | FIXED-VERIFIED |
+| 2026-09-24 | BUG-021 | Record skipped tasks in tracker on SKIP | task_tracker.py, agent_runner.py | No repeated proposals on SKIP | FIXED-VERIFIED |
+| 2026-09-24 | BUG-022 | Protect _play_tones_sync with _SOUND_LOCK | sound_alert.py | Chimes play sequentially without clobbering | FIXED-VERIFIED |
+| 2026-09-24 | BUG-023 | Added DEAD state and emergency life support | survival.py | Clinical death state + meter icons handled | FIXED-VERIFIED |
+| 2026-09-24 | BUG-024 | Catch KeyboardInterrupt in main menu cleanly | main.py | No traceback on Ctrl+C at menu | FIXED-VERIFIED |

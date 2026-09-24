@@ -103,6 +103,17 @@ class TaskTracker:
         with open(self.history_file, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
+    def record_skipped_task(self, url: str) -> None:
+        """Mark a task as skipped so it will not be proposed again in this session."""
+        if not url:
+            return
+        norm = self._normalize_url(url)
+        self.seen_urls.add(norm)
+        if "listings/" in norm:
+            slug = norm.split("listings/")[-1].strip("/")
+            if slug:
+                self.seen_slugs.add(slug)
+
     def count_submitted(self) -> int:
         return self._submitted_count
 

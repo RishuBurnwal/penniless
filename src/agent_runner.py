@@ -270,6 +270,7 @@ Ensure the repository name is in owner/repo format and the code in "files" is 10
                     artifact_or_pr=pr_url,
                     status="submitted",
                 )
+                rewards.on_task_completed(task_title=pr_title, task_type="code")
                 console.print(f"\n[bold green]🎉 Pull Request submitted autonomously and logged to ledger![/bold green]\n")
                 return
             except Exception as e:
@@ -335,6 +336,7 @@ Approved proposal:
         artifact_or_pr="solution_generated",
         status="generated",
     )
+    rewards.on_task_completed(task_title="Code Solution", task_type="code")
 
 
 def _execute_content_task(proposal: str, autonomous: bool = False, opportunity: dict | None = None) -> None:
@@ -421,6 +423,7 @@ Begin the full, publication-ready submission now:"""
         artifact_or_pr=str(sub_file),
         status="ready",
     )
+    rewards.on_task_completed(task_title=opp_title, task_type="content")
 
     console.print(f"\n[bold green]💾 Content saved chunk-wise to:[/bold green] [cyan]{sub_file}[/cyan] [dim]({total_chars} chars across {max(chunk_count, 1)} chunks)[/dim]")
     console.print(f"[dim]✎ Ledger entry recorded in {_LEDGER_PATH}[/dim]\n")
@@ -587,7 +590,10 @@ def run_agent(autonomous: bool = False) -> bool:
             _execute_task(proposal, autonomous=False, opportunity=chosen_opp)
             return True
         elif choice == "SKIP":
-            console.print("[dim]Skipping. Re-running scan...[/dim]\n")
+            skip_url = (chosen_opp.get("url") if chosen_opp else "") or ""
+            if skip_url:
+                tracker.record_skipped_task(skip_url)
+            console.print(f"[dim]Skipped '{chosen_opp.get('title', 'task')[:35]}'. Scanning next...[/dim]\n")
             return run_agent(autonomous=False)
         elif choice == "QUIT":
             console.print("[dim]Returning to menu.[/dim]")
@@ -676,7 +682,6 @@ def run_autonomous_daemon() -> None:
 
             # ── 3. Next task timing ──────────────────────────────────────────
             if had_work:
-                rewards.on_task_completed(task_title=f"cycle_{task_count}")
                 console.print(
                     f"\n[bold green]✓ Task #{task_count} done![/bold green] "
                     f"[cyan]⚡ Next bounty in 5s...[/cyan]\n"

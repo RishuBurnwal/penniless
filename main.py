@@ -109,7 +109,10 @@ def _show_menu() -> str:
     console.print()
 
     while True:
-        choice = input("  > ").strip()
+        try:
+            choice = input("  > ").strip()
+        except KeyboardInterrupt:
+            return "5"
         if choice in ("1", "2", "3", "4", "5"):
             return choice
         console.print("  [dim]Enter 1, 2, 3, 4, or 5[/dim]")
@@ -201,16 +204,20 @@ def main() -> None:
         "4": _option_4_interactive,
     }
 
-    while True:
-        choice = _show_menu()
+    try:
+        while True:
+            choice = _show_menu()
 
-        if choice == "5":
-            console.print("\n  [dim]Goodbye.[/dim]\n")
-            sys.exit(0)
+            if choice == "5":
+                console.print("\n  [dim]Goodbye.[/dim]\n")
+                sys.exit(0)
 
-        handler = _HANDLERS.get(choice)
-        if handler:
-            handler()
+            handler = _HANDLERS.get(choice)
+            if handler:
+                handler()
+    except KeyboardInterrupt:
+        console.print("\n  [dim]Goodbye.[/dim]\n")
+        sys.exit(0)
 
 
 if __name__ == "__main__":

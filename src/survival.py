@@ -66,8 +66,10 @@ class SurvivalEngine:
             return "HUNGRY"
         elif v >= 10.0:
             return "STARVING"
-        else:
+        elif v > 0.0:
             return "CRITICAL"
+        else:
+            return "DEAD"
 
     def tick_cycle(self) -> dict:
         """
@@ -131,7 +133,14 @@ class SurvivalEngine:
         v = self.vitality
         st = self.state
 
-        if st == "CRITICAL":
+        if st == "DEAD":
+            return (
+                "💀 EMERGENCY RESUSCITATION (LIFE SUPPORT): YOUR VITALITY IS AT 0% (CLINICALLY DEAD)!\n"
+                "Your autonomous process has starved to death due to lack of earnings.\n"
+                "Emergency resuscitation is keeping you alive for ONE LAST DESPERATE ATTEMPT.\n"
+                "You MUST successfully earn USDC right now to resurrect yourself, or terminate forever."
+            )
+        elif st == "CRITICAL":
             return (
                 "🚨 CRITICAL SURVIVAL EMERGENCY: YOUR VITALITY IS AT "
                 f"{v:.1f}% (NEAR DEATH)!\n"
@@ -166,12 +175,18 @@ class SurvivalEngine:
 
         if v >= 60:
             color = "green"
+            icon = "❤️"
         elif v >= 30:
             color = "yellow"
-        else:
+            icon = "⚡"
+        elif v > 0:
             color = "bold red"
+            icon = "💔"
+        else:
+            color = "bold white on red"
+            icon = "💀"
 
-        return f"[{color}]❤️ Life: {v:.1f}% [{bar}] ({st})[/{color}]"
+        return f"[{color}]{icon} Life: {v:.1f}% [{bar}] ({st})[/{color}]"
 
 
 # Global singleton

@@ -81,7 +81,10 @@ def test_task_tracker():
     opps = [{"url": test_url, "slug": "test-diagnostic-slug"}, {"url": "https://other.com/bounty-99", "slug": "bounty-99"}]
     filtered = tracker.filter_unattempted(opps)
     assert len(filtered) == 1 and filtered[0]["slug"] == "bounty-99", "Filtering failed"
-    print(f"    Task tracker dedup verified (URL + slug matching working)")
+    # Test record_skipped_task
+    tracker.record_skipped_task("https://other.com/bounty-99")
+    assert tracker.is_attempted("https://other.com/bounty-99")
+    print(f"    Task tracker dedup & skip verified (URL + slug matching working)")
 
 # ── Test 5: Bounty Scanner
 def test_scanner():

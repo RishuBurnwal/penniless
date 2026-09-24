@@ -134,3 +134,59 @@ Side exits: REJECTED (false positive, keep+reason) · UNCONFIRMED → needs-user
 - **Where**: main.py:163
 - **Evidence (E3 Static)**: When Option 2 exits on Ctrl+C, `_option_2_autonomous_loop()` returns to `main()` loop which immediately calls `console.clear()` in `_show_menu()`. User cannot see final stats.
 - **Fix**: Add `input("  Press Enter to return to the menu...")` before returning.
+
+---
+
+### BUG-020 — Tasks Completed in Option 3 & Option 4 Never Award XP, Badges, or Vitality
+- **Status**: FIXED-VERIFIED
+- **Priority**: P1 — High
+- **Category**: Logic / Flow
+- **Found**: 2026-09-24
+- **Where**: src/agent_runner.py:418, 266, 679
+- **Evidence (E3 Static)**: `rewards.on_task_completed()` was only called in `run_autonomous_daemon()`. When a user runs Option 3 (Single Cycle) or Option 4 (Interactive Gate), completing a task never triggered `on_task_completed()`, so XP remained 0, badges remained locked, and survival vitality was not replenished.
+- **Root cause**: Callback placed in daemon wrapper instead of inside task execution functions.
+- **Fix**: Move `rewards.on_task_completed(task_title, task_type)` directly into `_execute_content_task()` and `_execute_code_task()` with real bounty title.
+
+---
+
+### BUG-021 — Interactive Approval Gate SKIP Causes Infinite Loop on Same Task
+- **Status**: FIXED-VERIFIED
+- **Priority**: P2 — Medium
+- **Category**: Logic / Flow
+- **Found**: 2026-09-24
+- **Where**: src/agent_runner.py:589-591, src/task_tracker.py
+- **Evidence (E3 Static)**: Typing `SKIP` in interactive mode simply calls `run_agent(autonomous=False)` recursively without recording the skipped task. The scanner re-scans, finds the same task, and LLM re-proposes the exact same task indefinitely.
+- **Fix**: Add `tracker.record_skipped_task(url)` and call it when user chooses `SKIP`.
+
+---
+
+### BUG-022 — Concurrent Audio Chimes Interrupt and Race on Windows Speaker
+- **Status**: FIXED-VERIFIED
+- **Priority**: P2 — Audio / Reliability
+- **Category**: Concurrency
+- **Found**: 2026-09-24
+- **Where**: src/sound_alert.py:25-72
+- **Evidence (E3 Static)**: When earning arrives, `on_earning_detected()` calls `play_beep('earn')` and `bank.execute_bank_deposit()` immediately calls `play_beep('transaction')`. Two simultaneous threads call `winsound.Beep()`, causing race conditions and dropped chimes.
+- **Fix**: Protect `_play_tones_sync()` with a `threading.Lock()` to ensure sequential, melodious chime playback.
+
+---
+
+### BUG-023 — Survival Engine Missing "DEAD" State and Emergency Resuscitation
+- **Status**: FIXED-VERIFIED
+- **Priority**: P2 — Game Loop
+- **Category**: Logic / State
+- **Found**: 2026-09-24
+- **Where**: src/survival.py:61-70, 134-158
+- **Evidence (E3 Static)**: When vitality drops to 0.0%, `state` still returns `"CRITICAL"` and never reaches `"DEAD"`. No distinct life support / resuscitation prompt was given.
+- **Fix**: Define `"DEAD"` state when `vitality <= 0.0`, provide emergency life support directive, and render `💀 Life: 0.0% (DEAD)` in meter.
+
+---
+
+### BUG-024 — Unhandled KeyboardInterrupt Traceback in Main Menu
+- **Status**: FIXED-VERIFIED
+- **Priority**: P3 — UX
+- **Category**: CLI / Exception Handling
+- **Found**: 2026-09-24
+- **Where**: main.py:112, 203-214
+- **Evidence (E3 Static)**: Pressing Ctrl+C at `choice = input("  > ")` causes Python to crash with a traceback rather than cleanly exiting.
+- **Fix**: Catch `KeyboardInterrupt` in `_show_menu()` / `main()` and exit cleanly.
