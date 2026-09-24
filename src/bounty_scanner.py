@@ -9,6 +9,7 @@ Sources:
 """
 from __future__ import annotations
 
+import re
 import requests
 from datetime import datetime, timezone
 from typing import Any
@@ -231,19 +232,30 @@ def scan_github_bounties(limit: int = 10) -> list[dict]:
             return []
 
         items = r.json().get("items", [])
-        return [
-            {
-                "source": "github",
-                "title": i.get("title", ""),
-                "repo": i.get("repository_url", "").split("repos/")[-1],
-                "reward_usd": None,  # amount not in GitHub API, check issue body
-                "url": i.get("html_url", ""),
-                "body_snippet": (i.get("body") or "")[:1000],
-                "labels": [l.get("name") for l in (i.get("labels") or [])],
-                "paid_before": True,
-            }
-            for i in items
-        ]
+        parsed_items = []
+        for i in items:
+            title = i.get("title", "")
+            body = (i.get("body") or "")[:1500]
+            # Match formats like $50, $100, 50 USD, 100 USDC
+            m = re.search(r"\$\s*(\d+(?:\.\d+)?)", title)
+            if not m:
+                m = re.search(r"(\d+(?:\.\d+)?)\s*(?:USD|USDC)", title, re.IGNORECASE)
+            if not m:
+                m = re.search(r"\$\s*(\d+(?:\.\d+)?)", body)
+
+            reward_usd = float(m.group(1)) if m else None
+            if reward_usd and reward_usd > 0:
+                parsed_items.append({
+                    "source": "github",
+                    "title": title,
+                    "repo": i.get("repository_url", "").split("repos/")[-1],
+                    "reward_usd": reward_usd,
+                    "url": i.get("html_url", ""),
+                    "body_snippet": body[:1000],
+                    "labels": [l.get("name") for l in (i.get("labels") or [])],
+                    "paid_before": True,
+                })
+        return parsed_items
     except Exception as e:
         console.print(f"  [dim]GitHub bounty search error: {e}[/dim]")
         return []
