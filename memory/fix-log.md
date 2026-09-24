@@ -24,3 +24,6 @@
 | 2026-09-24 | BUG-026 | Submissions cleanup & error abort | agent_runner.py | Orphan tmp deleted, no fake completions | FIXED-VERIFIED |
 | 2026-09-24 | BUG-027 | Clean PR URL extraction on existing PR | git_executor.py | Clean URL returned rather than raw error | FIXED-VERIFIED |
 | 2026-09-24 | BUG-028 | Add choices bounds check on non-streaming LLM | llm_client.py | Handles empty choices without IndexError | FIXED-VERIFIED |
+| 2026-09-24 | BUG-029 | Exclude zero, negative, and None payout bounties | bounty_scanner.py, task_tracker.py | Only verified >$0 payouts processed | FIXED-VERIFIED |
+| 2026-09-24 | BUG-030 | Isolate diagnostic tests from production soul & history | test_full_system.py, soul.json, history.jsonl | Zero test pollution; bank total $0.0 | FIXED-VERIFIED |
+| 2026-09-24 | BUG-031 | Reconcile tasks_completed with clean history count | agent_runner.py, task_tracker.py | Both displays synchronized at 25 | FIXED-VERIFIED |

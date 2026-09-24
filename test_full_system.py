@@ -64,27 +64,45 @@ def test_rewards():
     from src.reward_system import rewards
     from src.memory import memory
     initial_xp = memory.soul.get("xp", 0)
-    rewards.on_task_completed(task_title="Diagnostic Test Task", task_type="audit")
-    new_xp = memory.soul.get("xp", 0)
-    assert new_xp == initial_xp + 10, f"XP did not increment by 10 (was {initial_xp}, now {new_xp})"
-    ctx = rewards.get_reward_context()
-    print(f"    Reward XP updated: {new_xp} (+10) | Reward context generated")
+    initial_tasks = memory.soul.get("tasks_completed", 0)
+    try:
+        rewards.on_task_completed(task_title="Diagnostic Test Task", task_type="audit")
+        new_xp = memory.soul.get("xp", 0)
+        assert new_xp == initial_xp + 10, f"XP did not increment by 10 (was {initial_xp}, now {new_xp})"
+        ctx = rewards.get_reward_context()
+        print(f"    Reward XP updated: {new_xp} (+10) | Reward context generated")
+    finally:
+        # Rollback so diagnostic tests never mutate real soul XP or task count!
+        memory.soul["xp"] = initial_xp
+        memory.soul["tasks_completed"] = initial_tasks
+        memory._save_soul()
 
 # ── Test 4: Task Tracker
 def test_task_tracker():
-    from src.task_tracker import tracker
-    test_url = "https://superteam.fun/listings/test-diagnostic-slug"
-    tracker.record_completed_task(test_url, "Test Task", "superteam", "test_artifact.md")
-    assert tracker.is_attempted(test_url), "Task tracker did not record URL"
-    assert tracker.is_attempted("test-diagnostic-slug"), "Task tracker did not record slug"
-    # Test filtering
-    opps = [{"url": test_url, "slug": "test-diagnostic-slug"}, {"url": "https://other.com/bounty-99", "slug": "bounty-99"}]
-    filtered = tracker.filter_unattempted(opps)
-    assert len(filtered) == 1 and filtered[0]["slug"] == "bounty-99", "Filtering failed"
-    # Test record_skipped_task
-    tracker.record_skipped_task("https://other.com/bounty-99")
-    assert tracker.is_attempted("https://other.com/bounty-99")
-    print(f"    Task tracker dedup & skip verified (URL + slug matching working)")
+    import tempfile
+    from src.task_tracker import TaskTracker
+    with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+    try:
+        tracker = TaskTracker(history_file=tmp_path)
+        test_url = "https://superteam.fun/listings/test-diagnostic-slug"
+        tracker.record_completed_task(test_url, "Test Task", "superteam", "test_artifact.md")
+        assert tracker.is_attempted(test_url), "Task tracker did not record URL"
+        assert tracker.is_attempted("test-diagnostic-slug"), "Task tracker did not record slug"
+        # Test filtering: task with reward 0 should be filtered, positive reward unattempted kept
+        opps = [
+            {"url": test_url, "slug": "test-diagnostic-slug", "reward_usd": 100},
+            {"url": "https://other.com/bounty-zero", "slug": "bounty-zero", "reward_usd": 0},
+            {"url": "https://other.com/bounty-99", "slug": "bounty-99", "reward_usd": 50},
+        ]
+        filtered = tracker.filter_unattempted(opps)
+        assert len(filtered) == 1 and filtered[0]["slug"] == "bounty-99", f"Filtering failed: {filtered}"
+        # Test record_skipped_task
+        tracker.record_skipped_task("https://other.com/bounty-99")
+        assert tracker.is_attempted("https://other.com/bounty-99")
+        print(f"    Task tracker dedup, zero-reward filter & skip verified in isolated sandbox")
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 # ── Test 5: Bounty Scanner
 def test_scanner():
@@ -184,14 +202,28 @@ def test_survival():
 
 def test_bank_manager():
     from src.bank_manager import bank
+    from src.memory import memory
     stats_before = bank.get_stats()
-    tx = bank.execute_bank_deposit(amount_usd=1.0, source="test_verification")
-    assert tx["status"] == "CONFIRMED"
-    assert tx["amount_usd"] == 1.0
-    assert tx["to_bank_wallet"] == bank.bank_wallet
-    stats_after = bank.get_stats()
-    assert stats_after["total_usd"] >= stats_before["total_usd"] + 1.0
-    print(f"    Bank manager verified: Deposit to {bank.bank_wallet[:14]}... confirmed")
+    orig_total = memory.soul.get("bank_total_usd", 0.0)
+    orig_txs = memory.soul.get("bank_tx_count", 0)
+    try:
+        tx = bank.execute_bank_deposit(amount_usd=1.0, source="test_verification")
+        assert tx["status"] == "CONFIRMED"
+        assert tx["amount_usd"] == 1.0
+        assert tx["to_bank_wallet"] == bank.bank_wallet
+        stats_after = bank.get_stats()
+        assert stats_after["total_usd"] >= stats_before["total_usd"] + 1.0
+        print(f"    Bank manager verified: Deposit to {bank.bank_wallet[:14]}... confirmed")
+    finally:
+        # Rollback so tests never mutate real soul bank balance!
+        memory.soul["bank_total_usd"] = orig_total
+        memory.soul["bank_tx_count"] = orig_txs
+        memory._save_soul()
+        # Clean any test verification receipt from bank_ledger.jsonl
+        ledger_path = Path(__file__).parent / "memory" / "bank_ledger.jsonl"
+        if ledger_path.exists():
+            clean_lines = [l for l in ledger_path.read_text(encoding="utf-8").splitlines() if "test_verification" not in l]
+            ledger_path.write_text("\n".join(clean_lines) + ("\n" if clean_lines else ""), encoding="utf-8")
 
 
 def main():

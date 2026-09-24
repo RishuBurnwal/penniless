@@ -235,3 +235,38 @@ Side exits: REJECTED (false positive, keep+reason) · UNCONFIRMED → needs-user
 - **Evidence (E3 Static)**: If a provider response has an empty `choices` list (e.g., content safety filtered or empty candidate), `resp.choices[0]` raises an unhandled `IndexError`.
 - **Fix**: Check `if not resp.choices` before accessing `resp.choices[0]` and raise a descriptive `ValueError`.
 
+---
+
+### BUG-029 — Zero-Payout, Null, or Non-USDC/SOL/USD Bounties Touched by Agent
+- **Status**: FIXED-VERIFIED
+- **Priority**: P0 — Critical Earning Rule
+- **Category**: Earning Integrity / Filtering
+- **Found**: 2026-09-24
+- **Where**: src/bounty_scanner.py, src/agent_runner.py, src/task_tracker.py
+- **Evidence (E1 Runtime)**: Agent processed Superteam listings with `reward_usd == 0.0` (e.g. `kriptok-league-trading-content-partner`) and GitHub issues with `reward_usd == None` or non-convertible tokens like RTC (RustChain), leading to rejected prompts or wasted agent cycles on $0 tasks.
+- **Root cause**: `filter_unattempted()` only checked if a task URL was seen before, not whether it paid money. `scan_github_bounties()` returned issues with `reward_usd: None`, and `scan_superteam()` did not filter out $0 listings.
+- **Fix**: Enforce a strict positive payout filter `_safe_float(reward_usd) > 0` and acceptable currencies (`USDC`, `SOL`, `USD`, `USDT`) across `scan_all()`, `filter_unattempted()`, and `_propose_task()`. Discard any $0, null, or unverified token opportunities immediately.
+
+---
+
+### BUG-030 — Diagnostic Test Suite Contaminating Production Soul, History, & Treasury
+- **Status**: FIXED-VERIFIED
+- **Priority**: P1 — Data Integrity
+- **Category**: Testing / State Leakage
+- **Found**: 2026-09-24
+- **Where**: test_full_system.py, memory/soul.json, history.jsonl, memory/bank_ledger.jsonl
+- **Evidence (E1 Runtime)**: Running `test_full_system.py` called `bank.execute_bank_deposit(1.0)` and `tracker.record_completed_task('test-diagnostic-slug', ...)` directly against production files, adding 6 dummy records to `history.jsonl` and creating a false "$4.00 USDC" Bank Stored balance in `soul.json` when actual wallet balance was $0.
+- **Fix**: Clean all test records from `history.jsonl`, reset `bank_total_usd` to 0.0 in `soul.json`, clean test deposits from `bank_ledger.jsonl`, and isolate `test_full_system.py` so tests restore state and never pollute production files.
+
+---
+
+### BUG-031 — Discrepancy Between Header "Completed" and Box "Tasks Done"
+- **Status**: FIXED-VERIFIED
+- **Priority**: P2 — UI Consistency
+- **Category**: Accounting / Display
+- **Found**: 2026-09-24
+- **Where**: src/agent_runner.py:521, 661
+- **Evidence (E1 Runtime)**: Top cycle banner showed `Completed: 24` (read from `memory.soul['tasks_completed']`), while the UI panel showed `Tasks Done: 30` (read from `tracker.count_submitted()`, which counted dummy test lines).
+- **Fix**: Synchronize `tasks_completed` with clean `tracker.count_submitted()`, and eliminate test pollution.
+
+

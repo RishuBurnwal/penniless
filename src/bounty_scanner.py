@@ -81,7 +81,7 @@ def scan_superteam() -> dict:
                 "paid_before": True,
             }
             for l in items
-            if (l.get("deadline") or "9999") > now
+            if (l.get("deadline") or "9999") > now and _safe_float(l.get("rewardAmount")) > 0
         ]
 
     # 1st: agent-only endpoint
@@ -290,13 +290,16 @@ def scan_all(verbose: bool = True) -> dict[str, Any]:
     if verbose:
         console.print(f" [green]{len(github)} found[/green]")
 
-    # Merge all opportunities
-    all_opps: list[dict] = []
+    # Merge all opportunities that have a verified positive payout (> $0)
+    raw_opps: list[dict] = []
     if isinstance(superteam, dict) and "open" in superteam:
-        all_opps.extend(superteam["open"])
-    all_opps.extend(issuehunt)
-    all_opps.extend(algora)
-    all_opps.extend(github)
+        raw_opps.extend(superteam["open"])
+    raw_opps.extend(issuehunt)
+    raw_opps.extend(algora)
+    # Only include GitHub issues if they have a confirmed positive reward
+    raw_opps.extend([g for g in github if _safe_float(g.get("reward_usd")) > 0])
+
+    all_opps: list[dict] = [o for o in raw_opps if _safe_float(o.get("reward_usd")) > 0]
 
     # Sort: verified payment first, then by reward descending
     all_opps.sort(

@@ -65,9 +65,17 @@ class TaskTracker:
         return False
 
     def filter_unattempted(self, opps: list[dict]) -> list[dict]:
-        """Return only tasks that have not yet been completed or attempted."""
+        """Return only tasks that have not yet been completed AND have a positive payout (> $0)."""
         unattempted = []
         for o in opps:
+            # Strictly filter out zero-reward, negative, or None payouts
+            try:
+                reward = float(str(o.get("reward_usd") or 0).replace("$", "").replace(",", "").strip())
+            except (ValueError, TypeError):
+                reward = 0.0
+            if reward <= 0:
+                continue
+
             url = o.get("url") or ""
             slug = o.get("slug") or ""
             if not self.is_attempted(url) and not (slug and self.is_attempted(slug)):

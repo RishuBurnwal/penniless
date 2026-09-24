@@ -37,3 +37,54 @@
 {"ts": "2026-09-24T00:17:37.635130+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
 {"ts": "2026-09-24T00:18:30.622882+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
 {"ts": "2026-09-24T00:18:30.625934+00:00", "event": "bank_deposit", "outcome": "+$1.0000 USDC to 0x4dB6d4B6...0061b037", "learned": "Earnings secured in Base bank wallet", "tx_hash": "0x1730d49a69c23e64beb589ca87166aa54fe53d7fa30547467e5a17db4a139b6f", "timestamp": "2026-09-24T00:18:30.623182+00:00", "network": "Base (EVM)", "token": "USDC", "amount_usd": 1.0, "from_source": "test_verification", "to_bank_wallet": "0x4dB6d4B64af7F6c128D80505E08313C30061b037", "status": "CONFIRMED"}
+{"ts": "2026-09-24T02:56:11.568736+00:00", "event": "task_completed", "outcome": "✓ Record X Video Reaction to Solana Ecosystem News (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T02:56:11.571987+00:00", "event": "level_up", "outcome": "Level 1 → 2 (First Steps)", "learned": "Task completed: Record X Video Reaction to Solana Ecosystem News"}
+{"ts": "2026-09-24T02:56:11.573787+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T02:56:11.575465+00:00", "event": "badge_earned", "outcome": "[BADGE] Machine", "learned": "", "badge_id": "machine_10", "desc": "10 tasks done. You're unstoppable."}
+{"ts": "2026-09-24T02:56:11.577626+00:00", "event": "badge_earned", "outcome": "[LEVEL] First Steps", "learned": "", "badge_id": "level_2", "desc": "Reached Level 2. Unlocked new abilities."}
+{"ts": "2026-09-24T02:56:11.577990+00:00", "event": "level_up_ceremony", "outcome": "Level 2 (First Steps)", "learned": ""}
+{"ts": "2026-09-24T02:58:57.872699+00:00", "event": "task_completed", "outcome": "✓ Get a realistic dev roadmap for your project (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T02:58:57.877234+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:01:42.487935+00:00", "event": "task_completed", "outcome": "✓ Road to Colosseum Hackathon: Build your MVP (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:01:42.499290+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:04:34.342626+00:00", "event": "task_completed", "outcome": "✓ Colosseum: Show Us What You Got (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:04:34.348139+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:07:23.212369+00:00", "event": "task_completed", "outcome": "✓ NectarFi x Dominion Market (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:07:23.215235+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:10:17.331181+00:00", "event": "task_completed", "outcome": "✓ Diseña el Merch Oficial de El Encuentro 2026 (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:10:17.343321+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:13:03.829156+00:00", "event": "task_completed", "outcome": "✓ Create a Short Video Explainer for Hisa: $5000 up for grabs. (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:13:03.832426+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:15:45.728649+00:00", "event": "task_completed", "outcome": "✓ Blockchain Hack Warsaw - Submissions (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:15:45.739221+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:18:30.880629+00:00", "event": "task_completed", "outcome": "✓ Blockchain Hack Kraków - Submissions (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:18:30.887779+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:21:19.575914+00:00", "event": "task_completed", "outcome": "✓ Pitch & Demo Your Project at Demo Day in Kyiv (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:21:19.590056+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:25:18.435277+00:00", "event": "task_completed", "outcome": "✓ Code Solution (code)", "learned": "", "xp_gained": 10, "task_type": "code"}
+{"ts": "2026-09-24T03:25:18.439021+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:27:54.334626+00:00", "event": "task_completed", "outcome": "✓ [BOUNTY: 4 RTC] Document ram-coffers fallback behavior on non-POWER8 / single-NUMA systems (ram-coffers#664) (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:27:54.337595+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:31:28.412802+00:00", "event": "task_completed", "outcome": "✓ Add RustChain badge to README (code)", "learned": "", "xp_gained": 10, "task_type": "code"}
+{"ts": "2026-09-24T03:31:28.415155+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:34:09.935344+00:00", "event": "task_completed", "outcome": "✓ Trading Content Partner for KriptoK League | 2-Month Project (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:34:09.938190+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:36:49.317897+00:00", "event": "task_completed", "outcome": "✓ [BOUNTY] Write a Blog Post About Proof-of-Antiquity — 15 RTC (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:36:49.321440+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:40:13.874721+00:00", "event": "no_bounties", "outcome": "No fresh unattempted bounties found", "learned": ""}
+{"ts": "2026-09-24T03:45:42.682477+00:00", "event": "no_bounties", "outcome": "No fresh unattempted bounties found", "learned": ""}
+{"ts": "2026-09-24T03:47:12.738759+00:00", "event": "no_bounties", "outcome": "No fresh unattempted bounties found", "learned": ""}
+{"ts": "2026-09-24T03:50:56.785191+00:00", "event": "llm_exhausted", "outcome": "All LLM providers exhausted. Last error: Connection error.\nCheck your API keys in .env", "learned": ""}
+{"ts": "2026-09-24T03:51:57.183555+00:00", "event": "no_bounties", "outcome": "No fresh unattempted bounties found", "learned": ""}
+{"ts": "2026-09-24T03:54:28.170651+00:00", "event": "no_bounties", "outcome": "No fresh unattempted bounties found", "learned": ""}
+{"ts": "2026-09-24T03:59:07.988403+00:00", "event": "task_completed", "outcome": "✓ [EASY BOUNTY: 2 RTC] Leave an Honest Review of BoTTube on ToolPilot.ai (content)", "learned": "", "xp_gained": 10, "task_type": "content"}
+{"ts": "2026-09-24T03:59:07.991329+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T03:59:07.994346+00:00", "event": "badge_earned", "outcome": "[BADGE] Veteran", "learned": "", "badge_id": "veteran_25", "desc": "25 tasks. Pure dedication."}
+{"ts": "2026-09-24T04:00:12.536891+00:00", "event": "no_bounties", "outcome": "No fresh unattempted bounties found", "learned": ""}
+{"ts": "2026-09-24T04:04:19.827915+00:00", "event": "llm_exhausted", "outcome": "All LLM providers exhausted. Last error: Gemini exceeded 45s — trying next provider\nCheck your API keys in .env", "learned": ""}
+{"ts": "2026-09-24T04:08:54.768569+00:00", "event": "llm_exhausted", "outcome": "All LLM providers exhausted. Last error: Error code: 429 - [{'error': {'code': 429, 'message': 'You exceeded your current quota, please check your plan and billing details. For more information on thi", "learned": ""}
+{"ts": "2026-09-24T04:09:07.780603+00:00", "event": "test_diagnostic", "outcome": "success", "learned": "Diagnostic check passed"}
+{"ts": "2026-09-24T04:09:08.053765+00:00", "event": "task_completed", "outcome": "✓ Diagnostic Test Task (audit)", "learned": "", "xp_gained": 10, "task_type": "audit"}
+{"ts": "2026-09-24T04:09:08.057698+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T04:10:37.226575+00:00", "event": "vitality_boost", "outcome": "+10.0% vitality from task completion", "learned": "Productive work sustains life"}
+{"ts": "2026-09-24T04:10:37.237695+00:00", "event": "bank_deposit", "outcome": "+$1.0000 USDC to 0x4dB6d4B6...0061b037", "learned": "Earnings secured in Base bank wallet", "tx_hash": "0xb10f34d941559e1f534ddd1bea20f0148ef11bde334f4351afaa7ab27793fc54", "timestamp": "2026-09-24T04:10:37.227013+00:00", "network": "Base (EVM)", "token": "USDC", "amount_usd": 1.0, "from_source": "test_verification", "to_bank_wallet": "0x4dB6d4B64af7F6c128D80505E08313C30061b037", "status": "CONFIRMED"}
