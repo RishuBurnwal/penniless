@@ -138,6 +138,42 @@ def test_chunk_file_save():
     print(f"    Chunk-wise disk streaming verified")
 
 
+def test_sound_alert():
+    from src.sound_alert import play_beep
+    play_beep("earn", sync=True)
+    play_beep("transaction", sync=True)
+    print("    Audio alert chimes verified (earn + transaction beeps)")
+
+
+def test_survival():
+    from src.survival import survival
+    # Test meter
+    meter = survival.render_meter()
+    assert "Life:" in meter
+    # Test tick
+    v_before = survival.vitality
+    tick_res = survival.tick_cycle()
+    assert tick_res["vitality"] <= v_before
+    # Test task recovery
+    survival.on_task_completed("Test Bounty")
+    assert survival.vitality >= tick_res["vitality"]
+    directive = survival.get_survival_directive()
+    assert "SURVIVAL" in directive
+    print(f"    Survival engine verified: {meter}")
+
+
+def test_bank_manager():
+    from src.bank_manager import bank
+    stats_before = bank.get_stats()
+    tx = bank.execute_bank_deposit(amount_usd=1.0, source="test_verification")
+    assert tx["status"] == "CONFIRMED"
+    assert tx["amount_usd"] == 1.0
+    assert tx["to_bank_wallet"] == bank.bank_wallet
+    stats_after = bank.get_stats()
+    assert stats_after["total_usd"] >= stats_before["total_usd"] + 1.0
+    print(f"    Bank manager verified: Deposit to {bank.bank_wallet[:14]}... confirmed")
+
+
 def main():
     print("=" * 60)
     print("      PENNILESS SYSTEM COMPREHENSIVE HEALTH CHECK")
@@ -152,6 +188,9 @@ def main():
     run_test("7. Git Executor Logic", test_git)
     run_test("8. LLM Client & Real-Time Chunk Streaming", test_llm_streaming)
     run_test("9. Chunk-Wise File Streaming to Disk", test_chunk_file_save)
+    run_test("10. Audio Alert System (Beep/Chimes)", test_sound_alert)
+    run_test("11. Survival & Vitality Engine", test_survival)
+    run_test("12. Base Bank Wallet & Transaction Manager", test_bank_manager)
 
     print("\n" + "=" * 60)
     print("      FINAL DIAGNOSTIC REPORT")
@@ -159,17 +198,18 @@ def main():
     all_passed = True
     for name, status, detail in results:
         mark = "✅" if status == "PASSED" else "❌"
-        print(f"  {mark} {name:<42} : {status} ({detail})")
+        print(f"  {mark} {name:<45} : {status} ({detail})")
         if status != "PASSED":
             all_passed = False
 
     print("=" * 60)
     if all_passed:
-        print(">>> ALL 9 SUBSYSTEMS VERIFIED 100% HEALTHY & FUNCTIONAL <<<\n")
+        print(">>> ALL 12 SUBSYSTEMS VERIFIED 100% HEALTHY & FUNCTIONAL <<<\n")
         sys.exit(0)
     else:
         print(">>> SOME SUBSYSTEMS FAILED - REVIEW LOGS ABOVE <<<\n")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

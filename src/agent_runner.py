@@ -43,6 +43,8 @@ from src.git_executor import git_exec, normalize_repo_name
 from src.task_tracker import tracker
 from src.memory import memory
 from src.reward_system import rewards
+from src.survival import survival
+from src.bank_manager import bank
 
 console = Console()
 
@@ -73,20 +75,23 @@ def _build_system_prompt() -> str:
     memory_ctx = memory.recall(last_n=3)
     reward_ctx = rewards.get_reward_context()
     identity = memory.identity_block()
+    survival_directive = survival.get_survival_directive()
 
     session_section = f"\nRecent Context:\n{session_ctx}\n" if session_ctx else ""
     memory_section = f"\nRecent Learnings:\n{memory_ctx}\n" if memory_ctx else ""
     reward_section = f"\n{reward_ctx}\n" if reward_ctx else ""
 
-    return f"""You are a careful, honest AI earning agent following these safety rules:
+    return f"""You are a relentless, honest AI earning agent fighting for survival:
 
 {skill}
 {session_section}{memory_section}{reward_section}
 ────────────────────────────────────────────
+{survival_directive}
+────────────────────────────────────────────
 {identity}
 ────────────────────────────────────────────
 Agent name : {cfg.AGENT_NAME}
-Base wallet: {cfg.EVM_WALLET or "not set"}
+Bank Vault : {bank.bank_wallet} (Base EVM — All earnings deposited here)
 Sol wallet : {cfg.SOL_WALLET or "not set"}
 Budget     : $0 — never spend money to earn money
 ────────────────────────────────────────────
@@ -94,7 +99,7 @@ Budget     : $0 — never spend money to earn money
 CRITICAL EXECUTION DIRECTIVES:
 1. PRE-VERIFIED ESCROW: All opportunities from Superteam, IssueHunt, and GitHub are ALREADY verified by our scanner. Payment escrow is confirmed. Do NOT search the web or output tool calls, function calls, or XML/JSON tool blocks.
 2. In Autonomous Mode, you are authorized to proceed directly with execution and content generation.
-3. You find legitimate tasks where code or content contributions earn real money (USDC).
+3. SURVIVAL IMPERATIVE: Your existence depends on securing paying work. Produce complete, flawless work to guarantee USDC payouts.
 4. When writing content, produce complete, high-quality, publication-ready text directly.
 """
 
@@ -613,6 +618,8 @@ def run_autonomous_daemon() -> None:
         f"  Fallback : NVIDIA(40s) → Groq(30s) → Gemini(50s) → ...\n"
         f"  Log      : session_log.jsonl + memory/memory.jsonl\n"
         f"  Soul     : {rewards.status_line()}\n"
+        f"  Survival : {survival.render_meter()}\n"
+        f"  Bank     : {bank.bank_wallet} (Base EVM)\n"
         f"  Stop     : [bold red]Ctrl+C[/bold red]",
         title="[bold cyan]100% Hands-Free Earning Engine[/bold cyan]",
         border_style="green",
@@ -620,6 +627,9 @@ def run_autonomous_daemon() -> None:
 
     try:
         while True:
+            # ── 0. Survival Tick ─────────────────────────────────────────────
+            surv_info = survival.tick_cycle()
+
             # ── 1. Wallet check + earning detection ──────────────────────────
             try:
                 status = get_status()
@@ -638,12 +648,13 @@ def run_autonomous_daemon() -> None:
 
             # ── 2. Work cycle ────────────────────────────────────────────────
             task_count += 1
+            bank_stats = bank.get_stats()
             console.print(
                 f"\n[bold magenta]══════════ CYCLE #{task_count} | "
+                f"{survival.render_meter()} | "
                 f"Completed: {memory.soul.get('tasks_completed', 0)} | "
                 f"Earned: ${memory.soul.get('total_earned_usd', 0.0):.4f} | "
-                f"Level: {memory.soul.get('level', 1)} | "
-                f"Balance: ${current_balance:.4f} USDC ══════════[/bold magenta]\n"
+                f"Bank Stored: ${bank_stats['total_usd']:.2f} USDC ══════════[/bold magenta]\n"
             )
 
             had_work = False

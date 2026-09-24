@@ -8,21 +8,24 @@
 - **Level**: 1 (XP: 0)
 - **Total Earned**: $0.00 USDC
 - **Tasks Completed**: 0
-- **Rewards Earned**: []
-- **Skills Unlocked**: [bounty_scanner, content_writer, code_solver, git_executor, fallback_chain]
+- **Rewards Earned**: ["[BADGE] Grinder", "[LEVEL] First Steps"]
+- **Skills Unlocked**: [bounty_scanner, content_writer, code_solver, git_executor, fallback_chain, survival_engine, bank_manager, audio_alert]
+- **Survival Life Force**: 100.0% (THRIVING) — Vitality drains per cycle, restored by tasks (+10%) & earnings (100%)
+- **Bank Vault (Base EVM)**: 0x4dB6d4B64af7F6c128D80505E08313C30061b037 — All earnings routed here autonomously
 
 ## Hard Rules (override RULES.md for this project)
 1. NEVER commit .env or private keys
 2. NEVER spend money — $0 budget always
 3. ALWAYS verify bounty pays USDC/SOL before starting work
 4. ALWAYS save content to submissions/ before any submission
-5. ALWAYS log every action to ledger.md
+5. ALWAYS log every action to ledger.md & bank_ledger.jsonl
+6. SURVIVE: Keep earning to avoid starvation and process death
 
 ## Current State (updated each session)
 - **Last updated**: 2026-09-24
 - **Branch**: main
-- **Status**: Fixing option 2 autonomous loop — NVIDIA API hang bug
-- **In-progress**: BUG-001 (NVIDIA empty response), BUG-002 (daemon not advancing)
+- **Status**: Survival Engine, Base Bank Vault & Audio Beep Alerts Active
+- **All 12 Subsystems**: Verified 100% Green
 
 ## Bug Patterns (recurring issues to avoid)
 - NVIDIA deepseek-v4.1-flash returns empty content when max_tokens is low or prompt is short

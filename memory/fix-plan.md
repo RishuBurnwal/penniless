@@ -1,28 +1,25 @@
 # FIX PLAN — Penniless AI Agent
 
-## Active: Batch BUG-011 to BUG-019 (Code & Logic Quality Overhaul)
+## Active: Survival Engine, Base Bank Wallet Auto-Transaction & Audio Beep Alerts
 
 ### Scope (per RULES §5 step 3)
-**What**: Fix tracker double counting, prevent false earning triggers on startup, ensure code task deduplication, clean deprecations, align badge names, remove dead code, safeguard scanner null types, fix installer Groq model, and fix daemon exit UX.
-**Files to touch**:
-1. `src/task_tracker.py` — BUG-011: Separate `seen_slugs` and maintain explicit `_submitted_count` loaded from lines.
-2. `src/agent_runner.py` — BUG-012 & BUG-013: Set `prev_balance = None` on startup; pass `opportunity` to `_execute_code_task` and track real task URL.
-3. `src/reward_system.py` — BUG-012 & BUG-015: Safeguard `prev_balance is None`; align level badge names with `_LEVEL_NAMES` in `memory.py`.
-4. `src/memory.py` — BUG-014: Replace `datetime.utcnow()` with `datetime.now(timezone.utc).isoformat()`.
-5. `src/llm_client.py` — BUG-014: Replace `datetime.utcnow()` with `datetime.now(timezone.utc).isoformat()`.
-6. `src/git_executor.py` — BUG-016: Remove dead `cmd` definition.
-7. `src/bounty_scanner.py` — BUG-017: Protect against `None` values on numeric fields and nested dictionaries.
-8. `src/installer.py` — BUG-018: Update Groq test model to `qwen/qwen3.8-27b` and update comments.
-9. `main.py` — BUG-019: Add `input("  Press Enter to return to the menu...")` on Option 2 exit.
+**What**: 
+1. `src/sound_alert.py`: Audio beep chime engine using Windows `winsound.Beep` for earning, bank transactions, and survival warnings.
+2. `src/survival.py`: Health / Vitality system where agent's life drains over cycles and only tasks/earnings restore energy. Injects high-stakes survival urgency into AI system prompts.
+3. `src/bank_manager.py`: Autonomous treasury manager that routes, executes, and logs transactions into the Base Bank Wallet (`cfg.EVM_WALLET`).
+4. Integration into `src/memory.py`, `src/reward_system.py`, `src/agent_runner.py`, and `test_full_system.py`.
 
-### Fix Order
-1. `src/task_tracker.py`
-2. `src/reward_system.py`
-3. `src/agent_runner.py`
-4. `src/memory.py` & `src/llm_client.py`
-5. `src/git_executor.py`
-6. `src/bounty_scanner.py`
-7. `src/installer.py`
-8. `main.py`
-9. Run test suites (`test_full_system.py` & tests)
-10. Commit & Push to GitHub
+### Files to touch:
+1. `src/sound_alert.py` [NEW]
+2. `src/survival.py` [NEW]
+3. `src/bank_manager.py` [NEW]
+4. `src/memory.py` [MODIFY]
+5. `src/reward_system.py` [MODIFY]
+6. `src/agent_runner.py` [MODIFY]
+7. `test_full_system.py` [MODIFY]
+
+### Verification:
+- Live test audio beep output.
+- Live test vitality drain, recovery on task, and restore on earning.
+- Live test bank transaction logging and receipt generation.
+- Full system diagnostic run (all tests green).

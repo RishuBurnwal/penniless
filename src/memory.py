@@ -44,6 +44,13 @@ _DEFAULT_SOUL: dict = {
     "born_at": datetime.now(timezone.utc).isoformat(),
     "last_seen": datetime.now(timezone.utc).isoformat(),
     "session_count": 0,
+    "vitality": 100.0,
+    "survival_state": "THRIVING",
+    "cycles_without_earning": 0,
+    "total_cycles_survived": 0,
+    "bank_wallet": "0x4dB6d4B64af7F6c128D80505E08313C30061b037",
+    "bank_total_usd": 0.0,
+    "bank_tx_count": 0,
     "bug_patterns": [
         "NVIDIA thinking model returns empty content — use reasoning_content fallback",
         "Groq fastest provider — prefer it when NVIDIA fails",

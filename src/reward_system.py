@@ -37,6 +37,9 @@ from rich.panel import Panel
 from rich.text import Text
 
 from src.memory import memory, _LEVEL_NAMES
+from src.sound_alert import play_beep
+from src.survival import survival
+from src.bank_manager import bank
 
 # Windows-safe console (force UTF-8, fallback to replace for non-encodable chars)
 console = Console(highlight=False)
@@ -84,7 +87,7 @@ class RewardSystem:
     # ── Main triggers ─────────────────────────────────────────────────────────
 
     def on_task_completed(self, task_title: str = "", task_type: str = "") -> None:
-        """Call after every successful task. Adds XP + checks badges."""
+        """Call after every successful task. Adds XP + checks badges + survival boost."""
         xp_gain = 10
         memory.reflect(
             event="task_completed",
@@ -92,6 +95,9 @@ class RewardSystem:
             details={"xp_gained": xp_gain, "task_type": task_type},
         )
         leveled_up, new_level = memory.add_xp(xp_gain, reason=f"Task completed: {task_title}")
+
+        # Survival vitality boost
+        survival.on_task_completed(task_title=task_title)
 
         # Check task-count badges
         tasks_done = memory.soul.get("tasks_completed", 0)
@@ -108,10 +114,23 @@ class RewardSystem:
     def on_earning_detected(self, amount_usd: float, source: str = "") -> None:
         """
         Call when wallet balance INCREASES — real money arrived.
-        This is the big celebration moment.
+        This is the big celebration moment:
+        1. Plays audio victory chime
+        2. Restores vitality to 100%
+        3. Executes deposit transaction into Base Bank Wallet
+        4. Awards badges and XP
         """
         if amount_usd <= 0:
             return
+
+        # 1. Play victory coin chime
+        play_beep("earn")
+
+        # 2. Fully restore agent's survival life force
+        survival.on_earning(amount_usd=amount_usd)
+
+        # 3. Route & deposit funds into Base Bank Wallet (cfg.EVM_WALLET)
+        bank.execute_bank_deposit(amount_usd=amount_usd, source=source, token="USDC")
 
         xp_gain = max(100, int(amount_usd))  # $1 = +100 XP, $10 = +100 XP (min), $500 = +500 XP
         memory.reflect(
