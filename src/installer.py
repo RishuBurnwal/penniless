@@ -89,7 +89,7 @@ def _write_env(values: dict[str, str]) -> None:
         "# At least one must be set. Providers without a key are skipped automatically.",
         f"NVIDIA_API_KEY={values.get('NVIDIA_API_KEY', '')}",
         f"GEMINI_API_KEY={values.get('GEMINI_API_KEY', '')}",
-        f"GEMINI_MODEL={values.get('GEMINI_MODEL', 'gemini-3.8-flash')}",
+        f"GEMINI_MODEL={values.get('GEMINI_MODEL', 'gemini-2.5-flash')}",
         f"GEMINI_REASONING_EFFORT={values.get('GEMINI_REASONING_EFFORT', 'medium')}",
         f"GROQ_API_KEY={values.get('GROQ_API_KEY', '')}",
         f"OPENAI_API_KEY={values.get('OPENAI_API_KEY', '')}",

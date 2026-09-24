@@ -272,7 +272,7 @@ Ensure the repository name is in owner/repo format and the code in "files" is 10
                 )
                 rewards.on_task_completed(task_title=pr_title, task_type="code")
                 console.print(f"\n[bold green]🎉 Pull Request submitted autonomously and logged to ledger![/bold green]\n")
-                return
+                return True
             except Exception as e:
                 console.print(f"  [yellow]Autonomous PR submission notice: {e}[/yellow]")
                 console.print("  [dim]Falling back to standard solution display...[/dim]")
@@ -311,11 +311,19 @@ Approved proposal:
 {proposal[:600]}
 ────────────────────────────────────────"""
 
-    response = llm.chat(
-        messages=[{"role": "user", "content": execute_prompt}],
-        system=_build_system_prompt(),
-        max_tokens=4096,
-    )
+    try:
+        response = llm.chat(
+            messages=[{"role": "user", "content": execute_prompt}],
+            system=_build_system_prompt(),
+            max_tokens=4096,
+        )
+    except Exception as e:
+        console.print(f"  [bold red]❌ LLM code solution generation failed: {e}[/bold red]")
+        return False
+
+    if not response or not response.strip() or response.strip().startswith("[ERROR"):
+        console.print("  [bold red]❌ LLM returned empty or error response for code solution.[/bold red]")
+        return False
 
     console.print(Panel(Markdown(response), title="[bold green]🔧 Code Solution[/bold green]", border_style="green"))
 
@@ -337,6 +345,7 @@ Approved proposal:
         status="generated",
     )
     rewards.on_task_completed(task_title="Code Solution", task_type="code")
+    return True
 
 
 def _execute_content_task(proposal: str, autonomous: bool = False, opportunity: dict | None = None) -> None:
@@ -399,12 +408,22 @@ Begin the full, publication-ready submission now:"""
 
     console.print(f"  [dim]💾 Streaming chunks in real-time to {sub_file.name}...[/dim]")
 
-    response = llm.chat(
-        messages=[{"role": "user", "content": content_prompt}],
-        system=_build_system_prompt(),
-        max_tokens=2500,
-        on_chunk=_save_chunk,
-    )
+    try:
+        response = llm.chat(
+            messages=[{"role": "user", "content": content_prompt}],
+            system=_build_system_prompt(),
+            max_tokens=2500,
+            on_chunk=_save_chunk,
+        )
+    except Exception as e:
+        console.print(f"  [bold red]❌ LLM content generation failed: {e}[/bold red]")
+        sub_file.unlink(missing_ok=True)
+        return False
+
+    if not response or not response.strip() or response.strip().startswith("[ERROR"):
+        console.print("  [bold red]❌ LLM returned empty or error response — aborting submission artifact.[/bold red]")
+        sub_file.unlink(missing_ok=True)
+        return False
 
     # Ensure file has full response if streaming didn't write for any reason
     if sub_file.stat().st_size == 0 or total_chars < len(response):
@@ -427,14 +446,15 @@ Begin the full, publication-ready submission now:"""
 
     console.print(f"\n[bold green]💾 Content saved chunk-wise to:[/bold green] [cyan]{sub_file}[/cyan] [dim]({total_chars} chars across {max(chunk_count, 1)} chunks)[/dim]")
     console.print(f"[dim]✎ Ledger entry recorded in {_LEDGER_PATH}[/dim]\n")
+    return True
 
 
-def _execute_task(proposal: str, autonomous: bool = False, opportunity: dict | None = None) -> None:
-    """Route to code or content executor based on proposal type."""
+def _execute_task(proposal: str, autonomous: bool = False, opportunity: dict | None = None) -> bool:
+    """Route to code or content executor based on proposal type. Returns True on success."""
     if _is_content_task(proposal):
-        _execute_content_task(proposal, autonomous=autonomous, opportunity=opportunity)
+        return _execute_content_task(proposal, autonomous=autonomous, opportunity=opportunity)
     else:
-        _execute_code_task(proposal, autonomous=autonomous, opportunity=opportunity)
+        return _execute_code_task(proposal, autonomous=autonomous, opportunity=opportunity)
 
 
 # ─── Phase 1: Find and propose a task ────────────────────────────────────────
@@ -573,8 +593,7 @@ def run_agent(autonomous: bool = False) -> bool:
     # ── Autonomous path vs Human Gate
     if autonomous:
         console.print("\n[bold green]⚡ Autonomous Mode: Auto-executing and submitting without user interaction...[/bold green]\n")
-        _execute_task(proposal, autonomous=True, opportunity=chosen_opp)
-        return True
+        return _execute_task(proposal, autonomous=True, opportunity=chosen_opp)
 
     # Interactive path
     console.print(
@@ -587,8 +606,7 @@ def run_agent(autonomous: bool = False) -> bool:
     while True:
         choice = input("Your choice: ").strip().upper()
         if choice == "GO":
-            _execute_task(proposal, autonomous=False, opportunity=chosen_opp)
-            return True
+            return _execute_task(proposal, autonomous=False, opportunity=chosen_opp)
         elif choice == "SKIP":
             skip_url = (chosen_opp.get("url") if chosen_opp else "") or ""
             if skip_url:

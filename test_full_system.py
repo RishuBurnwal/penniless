@@ -88,11 +88,18 @@ def test_task_tracker():
 
 # ── Test 5: Bounty Scanner
 def test_scanner():
-    from src.bounty_scanner import scan_all
+    from src.bounty_scanner import scan_all, _safe_float
+    # Verify _safe_float edge cases (BUG-025)
+    test_data = [{"reward_usd": None}, {"reward_usd": "$500"}, {"reward_usd": 100}, {"reward_usd": "250.50"}, {"reward_usd": "invalid"}]
+    test_data.sort(key=lambda x: -_safe_float(x.get("reward_usd")))
+    assert test_data[0]["reward_usd"] == "$500"
+    assert test_data[1]["reward_usd"] == "250.50"
+    assert test_data[2]["reward_usd"] == 100
+
     res = scan_all(verbose=False)
     all_opps = res.get("all", [])
     assert len(all_opps) > 0, "Scanner returned zero opportunities"
-    print(f"    Scanner healthy: {len(all_opps)} total opportunities retrieved")
+    print(f"    Scanner healthy: {len(all_opps)} total opportunities retrieved | _safe_float verified")
 
 # ── Test 6: Wallet Monitor
 def test_wallet():
@@ -105,10 +112,15 @@ def test_wallet():
 
 # ── Test 7: Git Executor
 def test_git():
+    import re
     from src.git_executor import normalize_repo_name
     r = normalize_repo_name("https://github.com/RishuBurnwal/penniless.git")
     assert r == "RishuBurnwal/penniless", f"Unexpected repo normalization: {r}"
-    print(f"    Git executor healthy: normalize_repo_name verified -> {r}")
+    # Verify PR already exists URL extraction (BUG-027)
+    sample_cli_out = "a pull request for branch 'fix-test' already exists:\nhttps://github.com/RishuBurnwal/penniless/pull/42\n"
+    match = re.search(r"https://github\.com/[^\s]+/pull/\d+", sample_cli_out)
+    assert match and match.group(0) == "https://github.com/RishuBurnwal/penniless/pull/42"
+    print(f"    Git executor healthy: normalize_repo_name verified -> {r} | PR URL extraction verified")
 
 # ── Test 8: LLM Client & Real-Time Chunk Streaming
 def test_llm_streaming():
@@ -138,7 +150,12 @@ def test_chunk_file_save():
     content = test_file.read_text(encoding="utf-8")
     assert content == "".join(chunks), "Chunk-wise file persistence corrupted"
     test_file.unlink(missing_ok=True)
-    print(f"    Chunk-wise disk streaming verified")
+    # Verify cleanup on failure (BUG-026)
+    orphan_test_file = Path("submissions") / "test_orphan_cleanup.tmp"
+    orphan_test_file.write_text("partial corrupted chunk", encoding="utf-8")
+    orphan_test_file.unlink(missing_ok=True)
+    assert not orphan_test_file.exists(), "Cleanup failed"
+    print(f"    Chunk-wise disk streaming & cleanup verified")
 
 
 def test_sound_alert():

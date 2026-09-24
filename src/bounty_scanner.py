@@ -20,6 +20,19 @@ console = Console()
 _TIMEOUT = 12
 
 
+def _safe_float(v: Any) -> float:
+    """Safely convert any numeric, string, or None value to float."""
+    if v is None:
+        return 0.0
+    if isinstance(v, (int, float)):
+        return float(v)
+    try:
+        clean = str(v).replace("$", "").replace(",", "").strip()
+        return float(clean)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 # ─── Superteam ────────────────────────────────────────────────────────────────
 
 def scan_superteam() -> dict:
@@ -60,7 +73,7 @@ def scan_superteam() -> dict:
                 "slug": l.get("slug"),
                 "type": l.get("type"),
                 "content_type": _detect_content_type(l.get("title", ""), l.get("skills", [])),
-                "reward_usd": l.get("rewardAmount"),
+                "reward_usd": _safe_float(l.get("rewardAmount")),
                 "token": l.get("token"),
                 "access": l.get("agentAccess", "PUBLIC"),
                 "deadline": (l.get("deadline") or "")[:10],
@@ -82,7 +95,7 @@ def scan_superteam() -> dict:
             items = data if isinstance(data, list) else data.get("result", [])
             if items:
                 open_listings = _parse_items(items)
-                open_listings.sort(key=lambda x: (x.get("access") != "AGENT_ONLY", -(x.get("reward_usd") or 0)))
+                open_listings.sort(key=lambda x: (x.get("access") != "AGENT_ONLY", -_safe_float(x.get("reward_usd"))))
                 return {"total": len(items), "open": open_listings, "source_endpoint": "agent-only"}
     except Exception:
         pass
@@ -97,7 +110,7 @@ def scan_superteam() -> dict:
             data = r.json()
             items = data if isinstance(data, list) else data.get("result", [])
             open_listings = _parse_items(items)
-            open_listings.sort(key=lambda x: -(x.get("reward_usd") or 0))
+            open_listings.sort(key=lambda x: -_safe_float(x.get("reward_usd")))
             return {"total": len(items), "open": open_listings, "source_endpoint": "general"}
         return {"error": f"HTTP {r.status_code}: {r.text[:120]}"}
     except Exception as e:
@@ -122,25 +135,19 @@ def scan_issuehunt(limit: int = 20) -> list[dict]:
         data = r.json()
         issues: list[dict] = data if isinstance(data, list) else data.get("data", [])
 
-        def _to_float(v: Any) -> float:
-            try:
-                return float(v or 0)
-            except (ValueError, TypeError):
-                return 0.0
-
         return [
             {
                 "source": "issuehunt",
                 "title": i.get("title", ""),
                 "repo": i.get("repo_full_name", ""),
-                "reward_usd": _to_float(i.get("funded_amount")),
+                "reward_usd": _safe_float(i.get("funded_amount")),
                 "currency": "USD",
                 "url": i.get("html_url", ""),
                 "labels": [lbl.get("name") for lbl in (i.get("labels") or []) if isinstance(lbl, dict)],
                 "paid_before": True,  # IssueHunt escrows funds before listing
             }
             for i in issues
-            if _to_float(i.get("funded_amount")) > 0
+            if _safe_float(i.get("funded_amount")) > 0
         ]
     except Exception:
         return []
@@ -177,12 +184,6 @@ def scan_algora(limit: int = 20) -> list[dict]:
                 or data.get("data", [])
                 or []
             )[:limit]
-
-        def _safe_float(v: Any) -> float:
-            try:
-                return float(v or 0)
-            except (ValueError, TypeError):
-                return 0.0
 
         res_bounties = []
         for b in bounties:
@@ -301,7 +302,7 @@ def scan_all(verbose: bool = True) -> dict[str, Any]:
     all_opps.sort(
         key=lambda x: (
             not x.get("paid_before"),       # verified payers first
-            -(x.get("reward_usd") or 0),    # highest reward first
+            -_safe_float(x.get("reward_usd")),    # highest reward first
         )
     )
 

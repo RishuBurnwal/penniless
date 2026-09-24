@@ -188,7 +188,9 @@ class GitExecutor:
             match_exists = re.search(r"https://github\.com/[^\s]+/pull/\d+", output)
             if "already exists" in output.lower():
                 console.print(f"  [yellow]PR already exists: {output}[/yellow]")
-                return output
+                if match_exists:
+                    return match_exists.group(0)
+                return f"https://github.com/{repo_slug}/pulls"
             
             console.print(f"  [yellow]gh pr create output: {output}[/yellow]")
             return output

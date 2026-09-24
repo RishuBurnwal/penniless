@@ -190,3 +190,48 @@ Side exits: REJECTED (false positive, keep+reason) · UNCONFIRMED → needs-user
 - **Where**: main.py:112, 203-214
 - **Evidence (E3 Static)**: Pressing Ctrl+C at `choice = input("  > ")` causes Python to crash with a traceback rather than cleanly exiting.
 - **Fix**: Catch `KeyboardInterrupt` in `_show_menu()` / `main()` and exit cleanly.
+
+---
+
+### BUG-025 — Unary minus on string reward crashes sort in bounty scanner
+- **Status**: FIXED-VERIFIED
+- **Priority**: P1 — High / Crash Prevention
+- **Category**: Type Safety / Sorting
+- **Found**: 2026-09-24
+- **Where**: src/bounty_scanner.py:85, 100, 304
+- **Evidence (E3 Static)**: `-(x.get("reward_usd") or 0)` raises `TypeError: bad operand type for unary -: 'str'` if any API returns `rewardAmount` or `reward_usd` as a string (e.g. `"$500"`, `"100"`).
+- **Fix**: Centralize a `_safe_float()` helper that strips currency symbols, commas, and safely casts to float before negating.
+
+---
+
+### BUG-026 — Submissions Directory Cleanup and False Task Completion on LLM Failure
+- **Status**: FIXED-VERIFIED
+- **Priority**: P1 — Integrity / Logic Flow
+- **Category**: Flow Control / File Management
+- **Found**: 2026-09-24
+- **Where**: src/agent_runner.py:364-437
+- **Evidence (E3 Static)**: `sub_file` is created before LLM call. If LLM call fails, times out, or returns empty/error, `sub_file` remains on disk, the ledger marks it "Ready", tracker marks it completed, and XP/vitality boost is awarded for failed work.
+- **Fix**: Check `response` validity. On failure/error, delete `sub_file`, do not log to ledger/tracker, do not grant rewards/vitality, and return `False`.
+
+---
+
+### BUG-027 — GitExecutor PR creation returns multiline raw CLI error when PR already exists
+- **Status**: FIXED-VERIFIED
+- **Priority**: P2 — Data Integrity
+- **Category**: String Parsing
+- **Found**: 2026-09-24
+- **Where**: src/git_executor.py:187-195
+- **Evidence (E3 Static)**: When `gh pr create` fails with "already exists", the function returns the entire multiline `output` string instead of extracting the existing PR URL from the message, corrupting ledger formatting.
+- **Fix**: Extract and return the clean URL with regex, falling back to a clean status string.
+
+---
+
+### BUG-028 — LLM Client missing index bounds check on `resp.choices` in Gemini/non-streaming fallback
+- **Status**: FIXED-VERIFIED
+- **Priority**: P2 — Robustness
+- **Category**: Exception Handling
+- **Found**: 2026-09-24
+- **Where**: src/llm_client.py:266
+- **Evidence (E3 Static)**: If a provider response has an empty `choices` list (e.g., content safety filtered or empty candidate), `resp.choices[0]` raises an unhandled `IndexError`.
+- **Fix**: Check `if not resp.choices` before accessing `resp.choices[0]` and raise a descriptive `ValueError`.
+

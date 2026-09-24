@@ -263,6 +263,8 @@ class LLMClient:
                                         pass
                         else:
                             resp = self._call_with_gemini_fallback(c, p, kw)
+                            if not resp.choices or not resp.choices[0].message:
+                                raise ValueError(f"{p.name} returned response with no valid choices")
                             content = resp.choices[0].message.content or ""
                             if not content.strip():
                                 content = getattr(resp.choices[0].message, "reasoning_content", "") or ""

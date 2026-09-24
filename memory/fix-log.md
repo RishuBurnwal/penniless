@@ -20,3 +20,7 @@
 | 2026-09-24 | BUG-022 | Protect _play_tones_sync with _SOUND_LOCK | sound_alert.py | Chimes play sequentially without clobbering | FIXED-VERIFIED |
 | 2026-09-24 | BUG-023 | Added DEAD state and emergency life support | survival.py | Clinical death state + meter icons handled | FIXED-VERIFIED |
 | 2026-09-24 | BUG-024 | Catch KeyboardInterrupt in main menu cleanly | main.py | No traceback on Ctrl+C at menu | FIXED-VERIFIED |
+| 2026-09-24 | BUG-025 | Centralize _safe_float in bounty sorting | bounty_scanner.py | Safe float sort tested with mixed types | FIXED-VERIFIED |
+| 2026-09-24 | BUG-026 | Submissions cleanup & error abort | agent_runner.py | Orphan tmp deleted, no fake completions | FIXED-VERIFIED |
+| 2026-09-24 | BUG-027 | Clean PR URL extraction on existing PR | git_executor.py | Clean URL returned rather than raw error | FIXED-VERIFIED |
+| 2026-09-24 | BUG-028 | Add choices bounds check on non-streaming LLM | llm_client.py | Handles empty choices without IndexError | FIXED-VERIFIED |

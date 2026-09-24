@@ -1,25 +1,25 @@
 # FIX PLAN — Penniless AI Agent
 
-## Active: Survival Engine, Base Bank Wallet Auto-Transaction & Audio Beep Alerts
+## Active: BUG-025 through BUG-028 Comprehensive Integrity & Error Elimination
 
 ### Scope (per RULES §5 step 3)
-**What**: 
-1. `src/sound_alert.py`: Audio beep chime engine using Windows `winsound.Beep` for earning, bank transactions, and survival warnings.
-2. `src/survival.py`: Health / Vitality system where agent's life drains over cycles and only tasks/earnings restore energy. Injects high-stakes survival urgency into AI system prompts.
-3. `src/bank_manager.py`: Autonomous treasury manager that routes, executes, and logs transactions into the Base Bank Wallet (`cfg.EVM_WALLET`).
-4. Integration into `src/memory.py`, `src/reward_system.py`, `src/agent_runner.py`, and `test_full_system.py`.
+**What**:
+1. BUG-025: Fix sort key crash on string/non-numeric `reward_usd` in `src/bounty_scanner.py`.
+2. BUG-026: Submissions cleanup and prevention of false completion/reward records on LLM failure in `src/agent_runner.py`.
+3. BUG-027: Clean PR URL extraction when PR already exists in `src/git_executor.py`.
+4. BUG-028: Bounds check on `resp.choices` in `src/llm_client.py` for Gemini / non-streamed responses.
 
 ### Files to touch:
-1. `src/sound_alert.py` [NEW]
-2. `src/survival.py` [NEW]
-3. `src/bank_manager.py` [NEW]
-4. `src/memory.py` [MODIFY]
-5. `src/reward_system.py` [MODIFY]
-6. `src/agent_runner.py` [MODIFY]
-7. `test_full_system.py` [MODIFY]
+1. `src/bounty_scanner.py` [MODIFY]
+2. `src/agent_runner.py` [MODIFY]
+3. `src/git_executor.py` [MODIFY]
+4. `src/llm_client.py` [MODIFY]
+5. `test_full_system.py` [MODIFY]
+6. `memory/fix-log.md` [MODIFY]
 
 ### Verification:
-- Live test audio beep output.
-- Live test vitality drain, recovery on task, and restore on earning.
-- Live test bank transaction logging and receipt generation.
-- Full system diagnostic run (all tests green).
+- Unit check safe float sorting in bounty scanner with string & None rewards.
+- Unit check LLM error handling and submissions cleanup.
+- Unit check PR URL extraction with "already exists".
+- Run full 12-subsystem diagnostic suite live.
+
